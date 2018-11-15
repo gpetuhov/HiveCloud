@@ -6,12 +6,13 @@ admin.initializeApp();
 
 // Listens for new messages added to /chatrooms/:chatroomId/messages/:messageId
 exports.sendMessageNotification = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
-    .onCreate((message, context) => {
+    .onCreate((snap, context) => {
       const chatroomUid = context.params.chatroomUid;
       const messageUid = context.params.messageUid;
+      const message = snap.data()
 
       console.log('Message', chatroomUid, messageUid);
-
+      console.log('Message receiver', message.receiver_uid);
 
       // // Grab the current value of what was written to the Realtime Database.
       // const original = snap.data().original;
