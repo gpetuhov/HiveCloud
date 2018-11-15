@@ -7,9 +7,9 @@ admin.initializeApp();
 // Listens for new messages added to /chatrooms/:chatroomId/messages/:messageId
 exports.sendMessageNotification = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
     .onCreate((snap, context) => {
-    	const message = snap.data()
-     	const receiverUid = message.receiver_uid
-      	const messageText = message.message_text
+    	const message = snap.data();
+     	const receiverUid = message.receiver_uid;
+      	const messageText = message.message_text;
 
       	// Get receiver user
   		return admin.firestore()
@@ -17,28 +17,28 @@ exports.sendMessageNotification = functions.firestore.document('/chatrooms/{chat
             .doc(receiverUid)
             .get()
             .then(doc => {
- 	   	        const receiver = doc.data()
+ 	   	        const receiver = doc.data();
 
       			console.log('Receiver', receiver);
 
-		        const name = receiver.name
-		        const userName = receiver.username
+		        const name = receiver.name;
+		        const userName = receiver.username;
 
-		        let receiverName
+		        let receiverName;
 
-		        if (userName != "") {
-		        	receiverName = userName
+		        if (userName !== "") {
+		        	receiverName = userName;
 		        } else {
-		        	receiverName = name
+		        	receiverName = name;
 		        }
 
-		        const token = receiver.fcm_token
+		        const token = receiver.fcm_token;
 
 		        // Notification details
 		        // We must send DATA FCM message, not notification message.
 		        const payload = {
 		          data: {
-		    	    receiverName: `${receiverName}`
+		    	    receiverName: `${receiverName}`,
 		            messageText: `${messageText}`
 		          }
 		        };
