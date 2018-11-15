@@ -7,21 +7,46 @@ admin.initializeApp();
 // Listens for new messages added to /chatrooms/:chatroomId/messages/:messageId
 exports.sendMessageNotification = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
     .onCreate((snap, context) => {
-      const chatroomUid = context.params.chatroomUid;
-      const messageUid = context.params.messageUid;
-      const message = snap.data()
+    	const message = snap.data()
+     	const receiverUid = message.receiver_uid
+      	const messageText = message.message_text
 
-      console.log('Message', chatroomUid, messageUid);
-      console.log('Message receiver', message.receiver_uid);
+      	// Get receiver user
+  		return admin.firestore()
+            .collection('users')
+            .doc(receiverUid)
+            .get()
+            .then(doc => {
+ 	   	        const receiver = doc.data()
 
-      // // Grab the current value of what was written to the Realtime Database.
-      // const original = snap.data().original;
-      // console.log('Uppercasing', context.params.documentId, original);
-      // const uppercase = original.toUpperCase();
-      // // You must return a Promise when performing asynchronous tasks inside a Functions such as
-      // // writing to the Firebase Realtime Database.
-      // // Setting an 'uppercase' sibling in the Realtime Database returns a Promise.
-      // return snap.ref.set({uppercase}, {merge: true});
+      			console.log('Receiver', receiver);
+
+		        const name = receiver.name
+		        const userName = receiver.username
+
+		        let receiverName
+
+		        if (userName != "") {
+		        	receiverName = userName
+		        } else {
+		        	receiverName = name
+		        }
+
+		        const token = receiver.fcm_token
+
+		        // Notification details
+		        // We must send DATA FCM message, not notification message.
+		        const payload = {
+		          data: {
+		    	    receiverName: `${receiverName}`
+		            messageText: `${messageText}`
+		          }
+		        };
+
+		        console.log('Notification payload', payload);
+
+		        return admin.messaging().sendToDevice(token, payload);
+            });
     });
 
 /**
