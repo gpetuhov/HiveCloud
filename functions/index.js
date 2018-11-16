@@ -18,6 +18,8 @@ exports.sendNewChatMessageNotification = functions.firestore.document('/chatroom
      	const receiverUid = message.receiver_uid;
       	const messageText = message.message_text;
 
+        let senderName;
+
 		// Get sender user
 		// (in return statement, because this method must return promise)
   		return admin.firestore()
@@ -33,7 +35,6 @@ exports.sendNewChatMessageNotification = functions.firestore.document('/chatroom
 		        const userName = sender.username;
 
 		        // Init sender name with username or name
-		        let senderName;
 		        if (userName !== "") {
 		        	senderName = userName;
 		        } else {
@@ -42,34 +43,31 @@ exports.sendNewChatMessageNotification = functions.firestore.document('/chatroom
 
 		      	// Get receiver user
 		      	// (in return statement, because this method must return promise)
-		  		return admin.firestore()
-		            .collection('users')
-		            .doc(receiverUid)
-		            .get()
-		            .then(doc => {
-		            	// Get receiver user from the document
-		 	   	        const receiver = doc.data();
+		  		return admin.firestore().collection('users').doc(receiverUid).get()
+		    })
+            .then(doc => {
+            	// Get receiver user from the document
+ 	   	        const receiver = doc.data();
 
-						// Get receiver user's FCM token		        	
-				        const token = receiver.fcm_token;
+				// Get receiver user's FCM token		        	
+		        const token = receiver.fcm_token;
 
-				        // Create FCM message with sender name and message text.
-				        // We must send DATA FCM message, not notification message
-				        // (message contains only "data" part).
-				        // This is because notification messages do not trigger
-				        // FirebaseMessagingService.onMessageReceived() on the Android device,
-				        // when the app is in the BACKGROUND, and we need to show 
-				        // new chat message notification exactly when the app is in the background.
-				        const payload = {
-				          data: {
-				    	    senderName: `${senderName}`,
-				            messageText: `${messageText}`
-				          }
-				        };
+		        // Create FCM message with sender name and message text.
+		        // We must send DATA FCM message, not notification message
+		        // (message contains only "data" part).
+		        // This is because notification messages do not trigger
+		        // FirebaseMessagingService.onMessageReceived() on the Android device,
+		        // when the app is in the BACKGROUND, and we need to show 
+		        // new chat message notification exactly when the app is in the background.
+		        const payload = {
+		          data: {
+		    	    senderName: `${senderName}`,
+		            messageText: `${messageText}`
+		          }
+		        };
 
-				        // Send FCM message to the device with specified FCM token.
-				        // (again in return statement, because this method must return promise)
-				        return admin.messaging().sendToDevice(token, payload);
-		            });
+		        // Send FCM message to the device with specified FCM token.
+		        // (again in return statement, because this method must return promise)
+		        return admin.messaging().sendToDevice(token, payload);
             });
     });
