@@ -52,7 +52,7 @@ exports.sendNewChatMessageNotification = functions.firestore.document('/chatroom
 				// Get receiver user's FCM token		        	
 		        const token = receiver.fcm_token;
 
-		        // Create FCM message with sender name and message text.
+		        // Create FCM message with sender uid and name and message text.
 		        // We must send DATA FCM message, not notification message
 		        // (message contains only "data" part).
 		        // This is because notification messages do not trigger
@@ -61,6 +61,7 @@ exports.sendNewChatMessageNotification = functions.firestore.document('/chatroom
 		        // new chat message notification exactly when the app is in the background.
 		        const payload = {
 		          data: {
+		    	    senderUid: `${senderUid}`,
 		    	    senderName: `${senderName}`,
 		            messageText: `${messageText}`
 		          }
