@@ -4,38 +4,53 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
-// Listens for new messages added to /chatrooms/:chatroomId/messages/:messageId
-exports.sendMessageNotification = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
+// Send new chat message notification.
+// Listen for new chat messages added to /chatrooms/:chatroomId/messages/:messageId
+// and send data FCM message to the receiver of the new chat message.
+exports.sendNewChatMessageNotification = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
+	// This is triggered on new document creation
     .onCreate((snap, context) => {
+    	// Get chat message from the document
     	const message = snap.data();
+
+    	// Get receiver uid and message text from the chat message
      	const receiverUid = message.receiver_uid;
       	const messageText = message.message_text;
 
       	// Get receiver user
+      	// (in return statement, because this method must return promise)
   		return admin.firestore()
             .collection('users')
             .doc(receiverUid)
             .get()
             .then(doc => {
+            	// Get receiver user from the document
  	   	        const receiver = doc.data();
 
       			console.log('Receiver', receiver);
 
+      			// Get receiver user name and username
 		        const name = receiver.name;
 		        const userName = receiver.username;
 
+		        // Init receiver name with username or name
 		        let receiverName;
-
 		        if (userName !== "") {
 		        	receiverName = userName;
 		        } else {
 		        	receiverName = name;
 		        }
 
+				// Get receiver user's FCM token		        	
 		        const token = receiver.fcm_token;
 
-		        // Notification details
-		        // We must send DATA FCM message, not notification message.
+		        // Create FCM message with receiver name and message text.
+		        // We must send DATA FCM message, not notification message
+		        // (message contains only "data" part).
+		        // This is because notification messages do not trigger
+		        // FirebaseMessagingService.onMessageReceived() on the Android device,
+		        // when the app is in the BACKGROUND, and we need to show 
+		        // new chat message notification exactly when the app is in the background.
 		        const payload = {
 		          data: {
 		    	    receiverName: `${receiverName}`,
@@ -45,75 +60,8 @@ exports.sendMessageNotification = functions.firestore.document('/chatrooms/{chat
 
 		        console.log('Notification payload', payload);
 
+		        // Send FCM message to the device with specified FCM token.
+		        // (again in return statement, because this method must return promise)
 		        return admin.messaging().sendToDevice(token, payload);
             });
     });
-
-/**
- * Triggers when a user gets a new follower and sends a notification.
- *
- * Followers add a flag to `/followers/{followedUid}/{followerUid}`.
- * Users save their device notification tokens to `/users/{followedUid}/notificationTokens/{notificationToken}`.
- */
-// exports.sendFollowerNotification = functions.database.ref('/followers/{followedUid}/{followerUid}')
-//     .onWrite(async (change, context) => {
-//       const followerUid = context.params.followerUid;
-//       const followedUid = context.params.followedUid;
-//       // If un-follow we exit the function.
-//       if (!change.after.val()) {
-//         return console.log('User ', followerUid, 'un-followed user', followedUid);
-//       }
-//       console.log('We have a new follower UID:', followerUid, 'for user:', followedUid);
-
-//       // Get the list of device notification tokens.
-//       const getDeviceTokensPromise = admin.database()
-//           .ref(`/users/${followedUid}/notificationTokens`).once('value');
-
-//       // Get the follower profile.
-//       const getFollowerProfilePromise = admin.auth().getUser(followerUid);
-
-//       // The snapshot to the user's tokens.
-//       let tokensSnapshot;
-
-//       // The array containing all the user's tokens.
-//       let tokens;
-
-//       const results = await Promise.all([getDeviceTokensPromise, getFollowerProfilePromise]);
-//       tokensSnapshot = results[0];
-//       const follower = results[1];
-
-//       // Check if there are any device tokens.
-//       if (!tokensSnapshot.hasChildren()) {
-//         return console.log('There are no notification tokens to send to.');
-//       }
-//       console.log('There are', tokensSnapshot.numChildren(), 'tokens to send notifications to.');
-//       console.log('Fetched follower profile', follower);
-
-//       // Notification details.
-//       const payload = {
-//         notification: {
-//           title: 'You have a new follower!',
-//           body: `${follower.displayName} is now following you.`,
-//           icon: follower.photoURL
-//         }
-//       };
-
-//       // Listing all tokens as an array.
-//       tokens = Object.keys(tokensSnapshot.val());
-//       // Send notifications to all tokens.
-//       const response = await admin.messaging().sendToDevice(tokens, payload);
-//       // For each message check if there was an error.
-//       const tokensToRemove = [];
-//       response.results.forEach((result, index) => {
-//         const error = result.error;
-//         if (error) {
-//           console.error('Failure sending notification to', tokens[index], error);
-//           // Cleanup the tokens who are not registered anymore.
-//           if (error.code === 'messaging/invalid-registration-token' ||
-//               error.code === 'messaging/registration-token-not-registered') {
-//             tokensToRemove.push(tokensSnapshot.ref.child(tokens[index]).remove());
-//           }
-//         }
-//       });
-//       return Promise.all(tokensToRemove);
-//     });
