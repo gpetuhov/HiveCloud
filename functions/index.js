@@ -27,8 +27,6 @@ exports.sendNewChatMessageNotification = functions.firestore.document('/chatroom
             	// Get receiver user from the document
  	   	        const receiver = doc.data();
 
-      			console.log('Receiver', receiver);
-
       			// Get receiver user name and username
 		        const name = receiver.name;
 		        const userName = receiver.username;
@@ -57,8 +55,6 @@ exports.sendNewChatMessageNotification = functions.firestore.document('/chatroom
 		            messageText: `${messageText}`
 		          }
 		        };
-
-		        console.log('Notification payload', payload);
 
 		        // Send FCM message to the device with specified FCM token.
 		        // (again in return statement, because this method must return promise)
