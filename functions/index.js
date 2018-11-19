@@ -87,7 +87,18 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 				console.log('Chatroom = ', chatroom); 
 
 				// Get current new message count
-				const newMessageCount = chatroom.newMessageCount;
+				const tempNewMessageCount = chatroom.newMessageCount;
+
+				console.log('tempNewMessageCount = ', tempNewMessageCount); 
+
+				let newMessageCount;
+				if (tempNewMessageCount !== undefined) {
+					newMessageCount = tempNewMessageCount;
+				} else {
+					newMessageCount = 0;
+				}
+
+				console.log('newMessageCount = ', newMessageCount); 
 
 				// Increment new message count by 1
 				const incrementedNewMessageCount = newMessageCount + 1;
