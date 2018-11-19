@@ -19,9 +19,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
       	const messageText = message.message_text;
       	const messageTimestamp = message.timestamp;
 
-      	console.log('***');
-      	console.log('Message timestamp = ', messageTimestamp);
-
         let senderName;
         let receiverName;
         let receiverToken;
@@ -94,15 +91,11 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 					lastMessageTimestamp: messageTimestamp
 				};
 
-				console.log('Updated chatroom = ', updatedChatroom);
-
 				// In receiver's chatroom we must also update new message counter.
 				// So we copy updatedChatroom into updatedReceiverChatroom
 				// and add one more property for new message count.
 				let updatedReceiverChatroom = Object.assign({}, updatedChatroom);
 				updatedReceiverChatroom["newMessageCount"] = incrementedReceiverNewMessageCount;
-
-				console.log('Updated receiver chatroom = ', updatedReceiverChatroom);
 
 				// Create promise to update sender chatroom
 				const updateSenderChatroomPromise = admin
@@ -120,8 +113,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 				return Promise.all([updateSenderChatroomPromise, updateReceiverChatroomPromise]);
 			})
 			.then(response => {
-				console.log('response = ', response); 
-
 		        // Create FCM message with sender uid and name and message text.
 		        // We must send DATA FCM message, not notification message
 		        // (message contains only "data" part).
