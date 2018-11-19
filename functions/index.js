@@ -19,6 +19,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
       	const messageText = message.message_text;
       	const messageTimestamp = message.timestamp;
 
+      	console.log('***');
       	console.log('Message timestamp = ', messageTimestamp);
 
         let senderName;
@@ -66,22 +67,22 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		  		return admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid).get();
             })
 			.then(doc => {
-				// Get chatroom from the document
-				const chatroom = doc.data();
+				// Get receiver chatroom from the document
+				const receiverChatroom = doc.data();
 
 				// Get current new message count
-				const tempNewMessageCount = chatroom.newMessageCount;
+				const tempReceiverNewMessageCount = receiverChatroom.newMessageCount;
 
 				// If new message count is undefined, set to 0
-				let newMessageCount;
-				if (tempNewMessageCount !== undefined) {
-					newMessageCount = tempNewMessageCount;
+				let currentReceiverNewMessageCount;
+				if (tempReceiverNewMessageCount !== undefined) {
+					currentReceiverNewMessageCount = tempReceiverNewMessageCount;
 				} else {
-					newMessageCount = 0;
+					currentReceiverNewMessageCount = 0;
 				}
 
 				// Increment new message count by 1
-				const incrementedNewMessageCount = newMessageCount + 1;
+				const incrementedReceiverNewMessageCount = currentReceiverNewMessageCount + 1;
 
 				const updatedChatroom = {
 					userUid1: `${senderUid}`,
@@ -99,7 +100,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 				// So we copy updatedChatroom into updatedReceiverChatroom
 				// and add one more property for new message count.
 				let updatedReceiverChatroom = Object.assign({}, updatedChatroom);
-				updatedReceiverChatroom["newMessageCount"] = incrementedNewMessageCount;
+				updatedReceiverChatroom["newMessageCount"] = incrementedReceiverNewMessageCount;
 
 				console.log('Updated receiver chatroom = ', updatedReceiverChatroom);
 
