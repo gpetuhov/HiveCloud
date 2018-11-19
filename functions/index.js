@@ -17,6 +17,9 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
      	const senderUid = message.sender_uid;
      	const receiverUid = message.receiver_uid;
       	const messageText = message.message_text;
+      	const messageTimestamp = message.timestamp;
+
+      	console.log('Message timestamp = ', messageTimestamp);
 
         let senderName;
         let receiverName;
@@ -96,8 +99,44 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 				// Increment new message count by 1
 				const incrementedNewMessageCount = newMessageCount + 1;
 
-				// Update new message counter in receiver's chatroom
-				return doc.ref.set({newMessageCount: incrementedNewMessageCount}, {merge: true});
+				const updatedChatroom = {
+					userUid1: `${senderUid}`,
+					userUid2: `${receiverUid}`,
+					userName1: `${senderName}`,
+					userName2: `${receiverName}`,
+					lastMessageSenderUid: `${senderUid}`,
+					lastMessageText: `${messageText}`,
+					lastMessageTimestamp: messageTimestamp
+				};
+
+				console.log('Updated chatroom = ', updatedChatroom);
+
+				// In receiver's chatroom we must also update new message counter
+				const updatedReceiverChatroom = {
+					userUid1: `${senderUid}`,
+					userUid2: `${receiverUid}`,
+					userName1: `${senderName}`,
+					userName2: `${receiverName}`,
+					lastMessageSenderUid: `${senderUid}`,
+					lastMessageText: `${messageText}`,
+					lastMessageTimestamp: messageTimestamp,
+					newMessageCount: incrementedNewMessageCount
+				};
+
+				console.log('Updated receiver chatroom = ', updatedReceiverChatroom);
+
+				const updateSenderChatroomPromise = admin
+					.firestore()
+					.collection('userChatrooms')
+					.doc(senderUid)
+					.collection('chatroomsOfUser')
+					.doc(chatroomUid)
+					.set(updatedChatroom, {merge: true});
+
+				const updateReceiverChatroomPromise = doc.ref.set(updatedReceiverChatroom, {merge: true});
+
+				// Update sender and receiver chatrooms
+				return Promise.all([updateSenderChatroomPromise, updateReceiverChatroomPromise]);
 			})
 			.then(response => {
 				console.log('response = ', response); 
