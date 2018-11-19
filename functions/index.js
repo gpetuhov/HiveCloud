@@ -111,20 +111,15 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 
 				console.log('Updated chatroom = ', updatedChatroom);
 
-				// In receiver's chatroom we must also update new message counter
-				const updatedReceiverChatroom = {
-					userUid1: `${senderUid}`,
-					userUid2: `${receiverUid}`,
-					userName1: `${senderName}`,
-					userName2: `${receiverName}`,
-					lastMessageSenderUid: `${senderUid}`,
-					lastMessageText: `${messageText}`,
-					lastMessageTimestamp: messageTimestamp,
-					newMessageCount: incrementedNewMessageCount
-				};
+				// In receiver's chatroom we must also update new message counter.
+				// So we copy updatedChatroom into updatedReceiverChatroom
+				// and add one more property for new message count.
+				let updatedReceiverChatroom = Object.assign({}, updatedChatroom);
+				updatedReceiverChatroom["newMessageCount"] = incrementedNewMessageCount;
 
 				console.log('Updated receiver chatroom = ', updatedReceiverChatroom);
 
+				// Create promise to update sender chatroom
 				const updateSenderChatroomPromise = admin
 					.firestore()
 					.collection('userChatrooms')
@@ -133,6 +128,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 					.doc(chatroomUid)
 					.set(updatedChatroom, {merge: true});
 
+				// Create promise to update receiver chatroom
 				const updateReceiverChatroomPromise = doc.ref.set(updatedReceiverChatroom, {merge: true});
 
 				// Update sender and receiver chatrooms
