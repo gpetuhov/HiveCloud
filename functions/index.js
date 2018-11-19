@@ -37,16 +37,8 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
             	// Get sender user from the document
  	   	        const sender = doc.data();
 
-      			// Get sender user name and username
-		        const name = sender.name;
-		        const userName = sender.username;
-
 		        // Init sender name with username or name
-		        if (userName !== "") {
-		        	senderName = userName;
-		        } else {
-		        	senderName = name;
-		        }
+		        senderName = getUserNameOrUsername(sender.name, sender.username);
 
 		      	// Get receiver user
 		      	// (in return statement, because this method must return promise)
@@ -56,16 +48,8 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
             	// Get receiver user from the document
  	   	        const receiver = doc.data();
 
-      			// Get receiver user name and username
-		        const name = receiver.name;
-		        const userName = receiver.username;
-
 		        // Init receiver name with username or name
-		        if (userName !== "") {
-		        	receiverName = userName;
-		        } else {
-		        	receiverName = name;
-		        }
+		        receiverName = getUserNameOrUsername(receiver.name, receiver.username);
 
 				// Get receiver user's FCM token		        	
 		        receiverToken = receiver.fcm_token;
@@ -157,3 +141,15 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        return admin.messaging().sendToDevice(receiverToken, payload);
             });
     });
+
+function getUserNameOrUsername(name, userName) {
+	let result;
+
+    if (userName !== "") {
+    	result = userName;
+    } else {
+    	result = name;
+    }
+
+    return result;
+}
