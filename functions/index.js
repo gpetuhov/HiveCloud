@@ -74,8 +74,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        	chatroomUid = `${receiverUid}_${senderUid}`;
 		        }
 
-		        console.log('Chatroom uid = ', chatroomUid); 
-
 		        // Get receiver's chatroom
 		      	// (in return statement, because this method must return promise)
 		  		return admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid).get();
@@ -84,21 +82,16 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 				// Get chatroom from the document
 				const chatroom = doc.data();
 
-				console.log('Chatroom = ', chatroom); 
-
 				// Get current new message count
 				const tempNewMessageCount = chatroom.newMessageCount;
 
-				console.log('tempNewMessageCount = ', tempNewMessageCount); 
-
+				// If new message count is undefined, set to 0
 				let newMessageCount;
 				if (tempNewMessageCount !== undefined) {
 					newMessageCount = tempNewMessageCount;
 				} else {
 					newMessageCount = 0;
 				}
-
-				console.log('newMessageCount = ', newMessageCount); 
 
 				// Increment new message count by 1
 				const incrementedNewMessageCount = newMessageCount + 1;
