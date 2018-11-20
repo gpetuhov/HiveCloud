@@ -135,13 +135,5 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
     });
 
 function getUserNameOrUsername(name, userName) {
-	let result;
-
-    if (userName !== "") {
-    	result = userName;
-    } else {
-    	result = name;
-    }
-
-    return result;
+    return (userName !== undefined && userName !== "") ? userName : name;
 }
