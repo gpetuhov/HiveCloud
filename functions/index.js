@@ -136,6 +136,24 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
             });
     });
 
+exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
+	// This is triggered on document update
+    .onUpdate((change, context) => {
+    	// Get old chat message
+    	const oldMessage = change.before.data();
+    	// Get new chat message
+    	const newMessage = change.after.data();
+
+  		console.log('Old message = ', oldMessage);
+  		console.log('New message = ', newMessage);
+
+    	if (oldMessage.isRead === false && newMessage.isRead === true) {
+    		console.log('Message marked as read');
+    	}
+
+    	return null;
+    });
+
 function getUserNameOrUsername(name, userName) {
     return (userName !== undefined && userName !== "") ? userName : name;
 }
