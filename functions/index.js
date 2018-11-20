@@ -20,8 +20,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
       	const messageText = message.message_text;
       	const messageTimestamp = message.timestamp;
 
-      	console.log('Message UID = ', messageUid);
-
         let senderName;
         let receiverName;
         let receiverToken;
