@@ -54,11 +54,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        receiverToken = receiver.fcm_token;
 
 		        // Create chatroom UID
-		        if (senderUid < receiverUid) {
-		        	chatroomUid = `${senderUid}_${receiverUid}`;
-		        } else {
-		        	chatroomUid = `${receiverUid}_${senderUid}`;
-		        }
+		        chatroomUid = getChatroomUid(senderUid, receiverUid);
 
 		        // Get receiver's chatroom
 		      	// (in return statement, because this method must return promise)
@@ -68,16 +64,8 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 				// Get receiver chatroom from the document
 				const receiverChatroom = doc.data();
 
-				// Get current new message count
-				const tempReceiverNewMessageCount = receiverChatroom.newMessageCount;
-
 				// If new message count is undefined, set to 0
-				let currentReceiverNewMessageCount;
-				if (tempReceiverNewMessageCount !== undefined) {
-					currentReceiverNewMessageCount = tempReceiverNewMessageCount;
-				} else {
-					currentReceiverNewMessageCount = 0;
-				}
+				const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
 
 				// Increment new message count by 1
 				const incrementedReceiverNewMessageCount = currentReceiverNewMessageCount + 1;
@@ -136,6 +124,9 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
             });
     });
 
+// ===========================
+
+// If the message is marked as read, decrement new message count of the receiver's chatroom
 exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
 	// This is triggered on document update
     .onUpdate((change, context) => {
@@ -147,13 +138,67 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
   		console.log('Old message = ', oldMessage);
   		console.log('New message = ', newMessage);
 
-    	if (oldMessage.isRead === false && newMessage.isRead === true) {
-    		console.log('Message marked as read');
-    	}
+     	const senderUid = newMessage.sender_uid;
+     	const receiverUid = newMessage.receiver_uid;
 
-    	return null;
+
+    	if (oldMessage.isRead === true || newMessage.isRead === false) {
+	   		console.log('Message not marked as read');
+    		return null;
+
+    	} else {
+    		console.log('Message marked as read');
+
+	        // Create chatroom UID
+	        const chatroomUid = getChatroomUid(senderUid, receiverUid);
+
+	        // Get receiver's chatroom
+	      	// (in return statement, because this method must return promise)
+	  		return admin.firestore()
+	  			.collection('userChatrooms')
+	  			.doc(receiverUid)
+	  			.collection('chatroomsOfUser')
+	  			.doc(chatroomUid)
+	  			.get()
+  				.then(doc => {
+					// Get receiver chatroom from the document
+					const receiverChatroom = doc.data();
+
+			   		console.log('Receiver chatroom', receiverChatroom);
+
+					const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
+
+					if (currentReceiverNewMessageCount === 0) {
+				   		console.log('New message counter is 0');
+						return null;
+					
+					} else {
+				   		console.log('New message counter is not 0, decrementing');
+
+						const decrementedReceiverNewMessageCount = currentReceiverNewMessageCount - 1;
+
+						const updatedReceiverChatroom = {
+							newMessageCount: decrementedReceiverNewMessageCount
+						};
+
+				   		console.log('Updated chatroom', updatedReceiverChatroom);
+
+						return doc.ref.set(updatedReceiverChatroom, {merge: true});
+					}
+			    });
+    	}
     });
+
+// ===========================
 
 function getUserNameOrUsername(name, userName) {
     return (userName !== undefined && userName !== "") ? userName : name;
+}
+
+function getChatroomUid(senderUid, receiverUid) {
+    return (senderUid < receiverUid) ? `${senderUid}_${receiverUid}` : `${receiverUid}_${senderUid}`;
+}
+
+function getNewMessageCount(tempNewMessageCount) {
+	return (tempNewMessageCount !== undefined) ? tempNewMessageCount : 0;
 }
