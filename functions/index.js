@@ -16,7 +16,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
     	// Get sender uid, receiver uid and message text from the chat message
      	const senderUid = message.sender_uid;
      	const receiverUid = message.receiver_uid;
-     	const messageUid = snap.id;
       	const messageText = message.message_text;
       	const messageTimestamp = message.timestamp;
 
@@ -75,7 +74,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 					userUid2: `${receiverUid}`,
 					userName1: `${senderName}`,
 					userName2: `${receiverName}`,
-					lastMessageUid: `${messageUid}`,
 					lastMessageSenderUid: `${senderUid}`,
 					lastMessageText: `${messageText}`,
 					lastMessageTimestamp: messageTimestamp
