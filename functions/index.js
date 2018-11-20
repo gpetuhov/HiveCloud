@@ -135,20 +135,15 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
     	// Get new chat message
     	const newMessage = change.after.data();
 
-  		console.log('Old message = ', oldMessage);
-  		console.log('New message = ', newMessage);
-
      	const senderUid = newMessage.sender_uid;
      	const receiverUid = newMessage.receiver_uid;
 
-
     	if (oldMessage.isRead === true || newMessage.isRead === false) {
-	   		console.log('Message not marked as read');
+    		// If message has not been marked as read during this update,
+    		// then do nothing.
     		return null;
 
     	} else {
-    		console.log('Message marked as read');
-
 	        // Create chatroom UID
 	        const chatroomUid = getChatroomUid(senderUid, receiverUid);
 
@@ -164,24 +159,19 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 					// Get receiver chatroom from the document
 					const receiverChatroom = doc.data();
 
-			   		console.log('Receiver chatroom', receiverChatroom);
-
 					const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
 
 					if (currentReceiverNewMessageCount === 0) {
-				   		console.log('New message counter is 0');
+						// If new message counter is already 0, do nothing
 						return null;
 					
 					} else {
-				   		console.log('New message counter is not 0, decrementing');
-
+						// Otherwise decrement new message count and update receiver's chatroom
 						const decrementedReceiverNewMessageCount = currentReceiverNewMessageCount - 1;
 
 						const updatedReceiverChatroom = {
 							newMessageCount: decrementedReceiverNewMessageCount
 						};
-
-				   		console.log('Updated chatroom', updatedReceiverChatroom);
 
 						return doc.ref.set(updatedReceiverChatroom, {merge: true});
 					}
