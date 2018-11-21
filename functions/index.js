@@ -4,6 +4,8 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
+// === Exports ===
+
 // Listen for new chat messages added to /chatrooms/:chatroomId/messages/:messageId ,
 // update corresponding chatroom of the sender and the receiver,
 // and send data FCM message to the receiver of the new chat message.
@@ -55,112 +57,8 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        // Create chatroom UID
 		        chatroomUid = getChatroomUid(senderUid, receiverUid);
 
-		        // These properties will be updated anyway
-				const updatedChatroom = {
-					userUid1: `${senderUid}`,
-					userUid2: `${receiverUid}`,
-					userName1: `${senderName}`,
-					userName2: `${receiverName}`
-				};
-
-				// Create updates for sender and receiver chatroom by copying the object above
-				let updatedSenderChatroom = Object.assign({}, updatedChatroom);
-				let updatedReceiverChatroom = Object.assign({}, updatedChatroom);
-
-				// Sender and receiver chatroom references
-				const senderChatroomRef = admin.firestore().collection('userChatrooms').doc(senderUid).collection('chatroomsOfUser').doc(chatroomUid);
-				const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
-
-				const updateSenderChatroomPromise = admin.firestore().runTransaction(transaction => {
-	  		    	return transaction.get(senderChatroomRef)
-			    		.then(doc => {
-							console.log('Update sender chatroom transaction start');
-
-							// Get sender chatroom
-			    			const senderChatroom = doc.data();
-
-			    			// Get current last message timestamp
-			    			const senderChatroomCurrentLastMessageTimestamp = senderChatroom.lastMessageTimestamp;
-
-			    			// Update sender chatroom only if this message is newer, 
-			    			// than the last message in the chatroom.
-			    			if (messageTimestamp > senderChatroomCurrentLastMessageTimestamp) {
-								console.log('Updating sender chatroom');
-
-			    				// Update sender chatroom last message
-			    				updatedSenderChatroom["lastMessageSenderUid"] = `${senderUid}`;
-								updatedSenderChatroom["lastMessageText"] = `${messageText}`;
-								updatedSenderChatroom["lastMessageTimestamp"] = messageTimestamp;
-
-								return transaction.update(senderChatroomRef, updatedSenderChatroom);
-
-			    			} else {
-								console.log('Message is older than sender chatroom last message, do not update');
-			    				return null;
-			    			}
-				    	})
-					})
-					.then(result => {
-						console.log('Update sender chatroom transaction success!');
-						return null;
-					})
-					.catch(err => {
-						console.log('Update sender chatroom transaction failure:', err);
-						return null;
-					});
-
-				const updateReceiverChatroomPromise = admin.firestore().runTransaction(transaction => {
-					let receiverChatroomCurrentLastMessageTimestamp = 0;
-
-	  		    	return transaction.get(receiverChatroomRef)
-			    		.then(doc => {
-							console.log('Update receiver chatroom transaction start');
-
-							// Get receiver chatroom
-							const receiverChatroom = doc.data();
-
-							// Get current last message timestamp
-							receiverChatroomCurrentLastMessageTimestamp = receiverChatroom.lastMessageTimestamp;
-
-					        // Get receiver's unread chatroom messages
-					        return admin.firestore()
-					        	.collection('chatrooms')
-					        	.doc(chatroomUid)
-					        	.collection('messages')
-					        	.where('isRead', '==', false)
-					        	.where('receiver_uid', '==', receiverUid)
-					        	.get()
-				    	})
-				    	.then(snapshot => {
-    						// Count the number of unread chatroom messages
-							const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
-
-					    	console.log('unreadMessageCount = ', unreadMessageCount);
-
-					    	// New message count in the receiver chatroom must be updated anyway
-							updatedReceiverChatroom["newMessageCount"] = unreadMessageCount;
-
-							// Last message in the receiver chatroom should be updated,
-							// only if this message is newer.
-					    	if (messageTimestamp > receiverChatroomCurrentLastMessageTimestamp) {
-					    		console.log('Update receiver chatroom last message');
-
-			    				updatedReceiverChatroom["lastMessageSenderUid"] = `${senderUid}`;
-								updatedReceiverChatroom["lastMessageText"] = `${messageText}`;
-								updatedReceiverChatroom["lastMessageTimestamp"] = messageTimestamp;					    		
-					    	}
-
-				    		return transaction.update(receiverChatroomRef, updatedReceiverChatroom);
-				    	})
-					})
-					.then(result => {
-						console.log('Update receiver chatroom transaction success!');
-						return null;
-					})
-					.catch(err => {
-						console.log('Update receiver chatroom transaction failure:', err);
-						return null;
-					});
+				const updateSenderChatroomPromise = getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText);
+				const updateReceiverChatroomPromise = getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText);
 
 				// Update sender and receiver chatrooms
 				return Promise.all([updateSenderChatroomPromise, updateReceiverChatroomPromise]);
@@ -187,7 +85,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
             });
     });
 
-// ===========================
+// -----------------------
 
 // If the message is marked as read, determine current number of unread messages
 // and update new message count of the receiver's chatroom with this number.
@@ -277,7 +175,7 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
     	}
     });
 
-// ===========================
+// === Functions ===
 
 function getUserNameOrUsername(name, userName) {
     return (userName !== undefined && userName !== "") ? userName : name;
@@ -289,4 +187,117 @@ function getChatroomUid(senderUid, receiverUid) {
 
 function getNewMessageCount(tempNewMessageCount) {
 	return (tempNewMessageCount !== undefined) ? tempNewMessageCount : 0;
+}
+
+function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText) {
+	let updatedSenderChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
+
+	const senderChatroomRef = admin.firestore().collection('userChatrooms').doc(senderUid).collection('chatroomsOfUser').doc(chatroomUid);
+
+	return admin.firestore().runTransaction(transaction => {
+		    return transaction.get(senderChatroomRef)
+				.then(doc => {
+					console.log('Update sender chatroom transaction start');
+
+					// Get sender chatroom
+					const senderChatroom = doc.data();
+
+					// Get current last message timestamp
+					const senderChatroomCurrentLastMessageTimestamp = senderChatroom.lastMessageTimestamp;
+
+					// Update sender chatroom only if this message is newer, 
+					// than the last message in the chatroom.
+					if (messageTimestamp > senderChatroomCurrentLastMessageTimestamp) {
+						console.log('Updating sender chatroom');
+
+						// Update sender chatroom last message
+						updatedSenderChatroom["lastMessageSenderUid"] = `${senderUid}`;
+						updatedSenderChatroom["lastMessageText"] = `${messageText}`;
+						updatedSenderChatroom["lastMessageTimestamp"] = messageTimestamp;
+
+						return transaction.update(senderChatroomRef, updatedSenderChatroom);
+
+					} else {
+						console.log('Message is older than sender chatroom last message, do not update');
+						return null;
+					}
+		    	})
+		})
+		.then(result => {
+			console.log('Update sender chatroom transaction success!');
+			return null;
+		})
+		.catch(err => {
+			console.log('Update sender chatroom transaction failure:', err);
+			return null;
+		});
+}
+
+function getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText) {
+	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
+
+	const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
+
+	return admin.firestore().runTransaction(transaction => {
+			let receiverChatroomCurrentLastMessageTimestamp = 0;
+
+	    	return transaction.get(receiverChatroomRef)
+	    		.then(doc => {
+					console.log('Update receiver chatroom transaction start');
+
+					// Get receiver chatroom
+					const receiverChatroom = doc.data();
+
+					// Get current last message timestamp
+					receiverChatroomCurrentLastMessageTimestamp = receiverChatroom.lastMessageTimestamp;
+
+			        // Get receiver's unread chatroom messages
+			        return admin.firestore()
+			        	.collection('chatrooms')
+			        	.doc(chatroomUid)
+			        	.collection('messages')
+			        	.where('isRead', '==', false)
+			        	.where('receiver_uid', '==', receiverUid)
+			        	.get()
+		    	})
+		    	.then(snapshot => {
+					// Count the number of unread chatroom messages
+					const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
+
+			    	console.log('unreadMessageCount = ', unreadMessageCount);
+
+			    	// New message count in the receiver chatroom must be updated anyway
+					updatedReceiverChatroom["newMessageCount"] = unreadMessageCount;
+
+					// Last message in the receiver chatroom should be updated,
+					// only if this message is newer.
+			    	if (messageTimestamp > receiverChatroomCurrentLastMessageTimestamp) {
+			    		console.log('Include last message into receiver chatroom update');
+
+	    				updatedReceiverChatroom["lastMessageSenderUid"] = `${senderUid}`;
+						updatedReceiverChatroom["lastMessageText"] = `${messageText}`;
+						updatedReceiverChatroom["lastMessageTimestamp"] = messageTimestamp;					    		
+			    	}
+
+		    		return transaction.update(receiverChatroomRef, updatedReceiverChatroom);
+		    	})
+		})
+		.then(result => {
+			console.log('Update receiver chatroom transaction success!');
+			return null;
+		})
+		.catch(err => {
+			console.log('Update receiver chatroom transaction failure:', err);
+			return null;
+		});
+}
+
+function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName) {
+	// These properties are updated anyway
+	return {
+		userUid1: `${senderUid}`,
+		userUid2: `${receiverUid}`,
+		userName1: `${senderName}`,
+		userName2: `${receiverName}`
+	};
 }
