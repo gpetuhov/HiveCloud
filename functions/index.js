@@ -55,9 +55,15 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        // Create chatroom UID
 		        chatroomUid = getChatroomUid(senderUid, receiverUid);
 
-		        // Get unread chatroom messages
+		        // Get receiver's unread chatroom messages
 		      	// (in return statement, because this method must return promise)
-		        return admin.firestore().collection('chatrooms').doc(chatroomUid).collection('messages').where('isRead', '==', false).get()
+		        return admin.firestore()
+		        	.collection('chatrooms')
+		        	.doc(chatroomUid)
+		        	.collection('messages')
+		        	.where('isRead', '==', false)
+		        	.where('receiver_uid', '==', receiverUid)
+		        	.get()
             })
 			.then(snapshot => {
 				// Count the number of unread chatroom messages
@@ -81,25 +87,40 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 				let updatedReceiverChatroom = Object.assign({}, updatedChatroom);
 				updatedReceiverChatroom["newMessageCount"] = unreadMessageCount;
 
-				// Create promise to update sender chatroom
-				const updateSenderChatroomPromise = admin
-					.firestore()
-					.collection('userChatrooms')
-					.doc(senderUid)
-					.collection('chatroomsOfUser')
-					.doc(chatroomUid)
-					.set(updatedChatroom, {merge: true});
+				const senderChatroomRef = admin.firestore().collection('userChatrooms').doc(senderUid).collection('chatroomsOfUser').doc(chatroomUid);
+				const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
 
-				// Create promise to update receiver chatroom
-				const updateReceiverChatroomPromise = admin
-					.firestore()
-					.collection('userChatrooms')
-					.doc(receiverUid)
-					.collection('chatroomsOfUser')
-					.doc(chatroomUid)
-					.set(updatedReceiverChatroom, {merge: true});
+				const updateSenderChatroomPromise = admin.firestore().runTransaction(transaction => {
+	  		    	return transaction.get(senderChatroomRef)
+			    		.then(doc => {
+							console.log('Update sender chatroom transaction start');
+					      	return transaction.update(senderChatroomRef, updatedChatroom);
+				    	})
+					})
+					.then(result => {
+						console.log('Update sender chatroom transaction success!');
+						return null;
+					})
+					.catch(err => {
+						console.log('Update sender chatroom transaction failure:', err);
+						return null;
+					});
 
-				// TODO: the above 2 updates must be executed inside 2 transactions
+				const updateReceiverChatroomPromise = admin.firestore().runTransaction(transaction => {
+	  		    	return transaction.get(receiverChatroomRef)
+			    		.then(doc => {
+							console.log('Update receiver chatroom transaction start');
+					      	return transaction.update(receiverChatroomRef, updatedReceiverChatroom);
+				    	})
+					})
+					.then(result => {
+						console.log('Update receiver chatroom transaction success!');
+						return null;
+					})
+					.catch(err => {
+						console.log('Update receiver chatroom transaction failure:', err);
+						return null;
+					});
 
 				// Update sender and receiver chatrooms
 				return Promise.all([updateSenderChatroomPromise, updateReceiverChatroomPromise]);
@@ -177,8 +198,14 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 							return null;
 
 						} else {
-					        // Get unread chatroom messages
-					        return admin.firestore().collection('chatrooms').doc(chatroomUid).collection('messages').where('isRead', '==', false).get()
+					        // Get receiver's unread chatroom messages
+					        return admin.firestore()
+					        	.collection('chatrooms')
+					        	.doc(chatroomUid)
+					        	.collection('messages')
+					        	.where('isRead', '==', false)
+					        	.where('receiver_uid', '==', receiverUid)
+								.get()
 						}
 			    	})
 					.then(snapshot => {
