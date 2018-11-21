@@ -55,19 +55,15 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        // Create chatroom UID
 		        chatroomUid = getChatroomUid(senderUid, receiverUid);
 
-		        // Get receiver's chatroom
+		        // Get unread chatroom messages
 		      	// (in return statement, because this method must return promise)
-		  		return admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid).get();
+		        return admin.firestore().collection('chatrooms').doc(chatroomUid).collection('messages').where('isRead', '==', false).get()
             })
-			.then(doc => {
-				// Get receiver chatroom from the document
-				const receiverChatroom = doc.data();
+			.then(snapshot => {
+				// Count the number of unread chatroom messages
+				const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
 
-				// If new message count is undefined, set to 0
-				const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
-
-				// Increment new message count by 1
-				const incrementedReceiverNewMessageCount = currentReceiverNewMessageCount + 1;
+		    	console.log('unreadMessageCount = ', unreadMessageCount);
 
 				const updatedChatroom = {
 					userUid1: `${senderUid}`,
@@ -83,7 +79,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 				// So we copy updatedChatroom into updatedReceiverChatroom
 				// and add one more property for new message count.
 				let updatedReceiverChatroom = Object.assign({}, updatedChatroom);
-				updatedReceiverChatroom["newMessageCount"] = incrementedReceiverNewMessageCount;
+				updatedReceiverChatroom["newMessageCount"] = unreadMessageCount;
 
 				// Create promise to update sender chatroom
 				const updateSenderChatroomPromise = admin
@@ -95,7 +91,15 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 					.set(updatedChatroom, {merge: true});
 
 				// Create promise to update receiver chatroom
-				const updateReceiverChatroomPromise = doc.ref.set(updatedReceiverChatroom, {merge: true});
+				const updateReceiverChatroomPromise = admin
+					.firestore()
+					.collection('userChatrooms')
+					.doc(receiverUid)
+					.collection('chatroomsOfUser')
+					.doc(chatroomUid)
+					.set(updatedReceiverChatroom, {merge: true});
+
+				// TODO: the above 2 updates must be executed inside 2 transactions
 
 				// Update sender and receiver chatrooms
 				return Promise.all([updateSenderChatroomPromise, updateReceiverChatroomPromise]);
