@@ -145,48 +145,76 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 	        // Create chatroom UID
 	        const chatroomUid = getChatroomUid(senderUid, receiverUid);
 
-	        // Receiver's chatroom reference
-	        const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
+	        // Get chatroom messages
+	        return admin.firestore()
+	        	.collection('chatrooms')
+	        	.doc(chatroomUid)
+	        	.collection('messages')
+	        	.where('isRead', '==', false)
+	            .get()
+				.then(snapshot => {
+				    if (!snapshot.empty) {
+				    	const newMessageCount = snapshot.size;
 
-	        // Run new message counter update inside the transaction
-	        // to prevent corrupting data by parallel function execution.
-	        // Transaction will restart from the beginning, if the data
-	        // (the receiver's chatroom new message counter)
-	        // is modified by another function instance execution.
-			return admin.firestore().runTransaction(t => {
-  		    	return t.get(receiverChatroomRef)
-		    		.then(doc => {
-						console.log('Transaction start');
+				    	console.log('newMessageCount = ', newMessageCount);
 
-						// Get receiver chatroom from the document
-						const receiverChatroom = doc.data();
+				        // for (let i = 0; i < snapshot.size; i++) {
+				        //     const data = snapshot.docs[i].data();
+				        //     response.send(data);
+				        // }
+				    } else {
+				    	console.log('No unread messages found!')
+				    }
 
-						const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
-
-						console.log('Current count = ', currentReceiverNewMessageCount);
-
-						let decrementedReceiverNewMessageCount = 0;
-
-						// Decrement counter if it is larger than 0
-						if (currentReceiverNewMessageCount > 0) {
-							decrementedReceiverNewMessageCount = currentReceiverNewMessageCount - 1;
-						}
-
-						console.log('Decremented count = ', decrementedReceiverNewMessageCount);
-
-						const updatedReceiverChatroom = {newMessageCount: decrementedReceiverNewMessageCount};
-
-				      	return t.update(receiverChatroomRef, updatedReceiverChatroom);
-			    	});
-				}).then(result => {
-					console.log('Transaction success!');
-					return null;
-				}).catch(err => {
-					console.log('Transaction failure:', err);
-					return null;
+				    return null;
 				});
-    	}
-    });
+        }
+	});
+
+
+
+	  //       // Receiver's chatroom reference
+	  //       const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
+
+	  //       // Run new message counter update inside the transaction
+	  //       // to prevent corrupting data by parallel function execution.
+	  //       // Transaction will restart from the beginning, if the data
+	  //       // (the receiver's chatroom new message counter)
+	  //       // is modified by another function instance execution.
+			// return admin.firestore().runTransaction(t => {
+  	// 	    	return t.get(receiverChatroomRef)
+		 //    		.then(doc => {
+			// 			console.log('Transaction start');
+
+			// 			// Get receiver chatroom from the document
+			// 			const receiverChatroom = doc.data();
+
+			// 			const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
+
+			// 			console.log('Current count = ', currentReceiverNewMessageCount);
+
+			// 			let decrementedReceiverNewMessageCount = 0;
+
+			// 			// Decrement counter if it is larger than 0
+			// 			if (currentReceiverNewMessageCount > 0) {
+			// 				decrementedReceiverNewMessageCount = currentReceiverNewMessageCount - 1;
+			// 			}
+
+			// 			console.log('Decremented count = ', decrementedReceiverNewMessageCount);
+
+			// 			const updatedReceiverChatroom = {newMessageCount: decrementedReceiverNewMessageCount};
+
+			// 	      	return t.update(receiverChatroomRef, updatedReceiverChatroom);
+			//     	});
+			// 	}).then(result => {
+			// 		console.log('Transaction success!');
+			// 		return null;
+			// 	}).catch(err => {
+			// 		console.log('Transaction failure:', err);
+			// 		return null;
+			// 	});
+   //  	}
+   //  });
 
 // ===========================
 
