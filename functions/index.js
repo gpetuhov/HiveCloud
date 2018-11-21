@@ -145,35 +145,46 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 	        // Create chatroom UID
 	        const chatroomUid = getChatroomUid(senderUid, receiverUid);
 
-	        // Get receiver's chatroom
-	      	// (in return statement, because this method must return promise)
-	  		return admin.firestore()
-	  			.collection('userChatrooms')
-	  			.doc(receiverUid)
-	  			.collection('chatroomsOfUser')
-	  			.doc(chatroomUid)
-	  			.get()
-  				.then(doc => {
-					// Get receiver chatroom from the document
-					const receiverChatroom = doc.data();
+	        // Receiver's chatroom reference
+	        const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
 
-					const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
+	        // Run new message counter update inside the transaction
+	        // to prevent corrupting data by parallel function execution.
+	        // Transaction will restart from the beginning, if the data
+	        // (the receiver's chatroom new message counter)
+	        // is modified by another function instance execution.
+			return admin.firestore().runTransaction(t => {
+  		    	return t.get(receiverChatroomRef)
+		    		.then(doc => {
+						console.log('Transaction start');
 
-					if (currentReceiverNewMessageCount === 0) {
-						// If new message counter is already 0, do nothing
-						return null;
-					
-					} else {
-						// Otherwise decrement new message count and update receiver's chatroom
-						const decrementedReceiverNewMessageCount = currentReceiverNewMessageCount - 1;
+						// Get receiver chatroom from the document
+						const receiverChatroom = doc.data();
 
-						const updatedReceiverChatroom = {
-							newMessageCount: decrementedReceiverNewMessageCount
-						};
+						const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
 
-						return doc.ref.set(updatedReceiverChatroom, {merge: true});
-					}
-			    });
+						console.log('Current count = ', currentReceiverNewMessageCount);
+
+						let decrementedReceiverNewMessageCount = 0;
+
+						// Decrement counter if it is larger than 0
+						if (currentReceiverNewMessageCount > 0) {
+							decrementedReceiverNewMessageCount = currentReceiverNewMessageCount - 1;
+						}
+
+						console.log('Decremented count = ', decrementedReceiverNewMessageCount);
+
+						const updatedReceiverChatroom = {newMessageCount: decrementedReceiverNewMessageCount};
+
+				      	return t.update(receiverChatroomRef, updatedReceiverChatroom);
+			    	});
+				}).then(result => {
+					console.log('Transaction success!');
+					return null;
+				}).catch(err => {
+					console.log('Transaction failure:', err);
+					return null;
+				});
     	}
     });
 
