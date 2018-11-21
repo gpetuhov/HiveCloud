@@ -57,6 +57,8 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        // Create chatroom UID
 		        chatroomUid = getChatroomUid(senderUid, receiverUid);
 
+		        // Chatrooms are updated inside transactions
+		        // to prevent corrupting data by parallel function execution.
 				const updateSenderChatroomPromise = getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText);
 				const updateReceiverChatroomPromise = getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText);
 
