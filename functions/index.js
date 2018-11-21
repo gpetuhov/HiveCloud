@@ -124,7 +124,8 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 
 // ===========================
 
-// If the message is marked as read, decrement new message count of the receiver's chatroom
+// If the message is marked as read, determine current number of unread messages
+// and update new message count of the receiver's chatroom with this number.
 exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
 	// This is triggered on document update
     .onUpdate((change, context) => {
@@ -167,27 +168,32 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 
 						if (currentReceiverNewMessageCount === 0) {
 							// Do nothing, if new message count is already 0
-							console.log('New message count is 0, do nothing');
+							console.log('Current count is already 0, do nothing');
 
 							return null;
 
 						} else {
 					        // Get unread chatroom messages
-					        return admin.firestore()
-					        	.collection('chatrooms')
-					        	.doc(chatroomUid)
-					        	.collection('messages')
-					        	.where('isRead', '==', false)
-					            .get()
-								.then(snapshot => {
-									const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
-
-							    	console.log('newMessageCount = ', unreadMessageCount);
-
-							      	return transaction.update(receiverChatroomRef, {newMessageCount: unreadMessageCount});
-								});
+					        return admin.firestore().collection('chatrooms').doc(chatroomUid).collection('messages').where('isRead', '==', false).get()
 						}
-			    	});
+			    	})
+					.then(snapshot => {
+						if (snapshot !== null) {
+							// Count the number of unread chatroom messages
+							const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
+
+					    	console.log('unreadMessageCount = ', unreadMessageCount);
+
+					    	// Update new message count of the receiver's chatroom with the number of unread messages
+					      	return transaction.update(receiverChatroomRef, {newMessageCount: unreadMessageCount});
+
+					    } else {
+					    	// Snapshot is null (because current new message count is already 0 int previous then()),
+					    	// do nothing.
+					    	console.log('Snapshot is null, do nothing');
+					    	return null;
+					    }
+					})
 				})
 				.then(result => {
 					console.log('Transaction success!');
