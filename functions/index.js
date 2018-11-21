@@ -55,22 +55,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        // Create chatroom UID
 		        chatroomUid = getChatroomUid(senderUid, receiverUid);
 
-		        // Get receiver's unread chatroom messages
-		      	// (in return statement, because this method must return promise)
-		        return admin.firestore()
-		        	.collection('chatrooms')
-		        	.doc(chatroomUid)
-		        	.collection('messages')
-		        	.where('isRead', '==', false)
-		        	.where('receiver_uid', '==', receiverUid)
-		        	.get()
-            })
-			.then(snapshot => {
-				// Count the number of unread chatroom messages
-				const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
-
-		    	console.log('unreadMessageCount = ', unreadMessageCount);
-
 				const updatedChatroom = {
 					userUid1: `${senderUid}`,
 					userUid2: `${receiverUid}`,
@@ -80,12 +64,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 					lastMessageText: `${messageText}`,
 					lastMessageTimestamp: messageTimestamp
 				};
-
-				// In receiver's chatroom we must also update new message counter.
-				// So we copy updatedChatroom into updatedReceiverChatroom
-				// and add one more property for new message count.
-				let updatedReceiverChatroom = Object.assign({}, updatedChatroom);
-				updatedReceiverChatroom["newMessageCount"] = unreadMessageCount;
 
 				const senderChatroomRef = admin.firestore().collection('userChatrooms').doc(senderUid).collection('chatroomsOfUser').doc(chatroomUid);
 				const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
@@ -110,7 +88,29 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 	  		    	return transaction.get(receiverChatroomRef)
 			    		.then(doc => {
 							console.log('Update receiver chatroom transaction start');
-					      	return transaction.update(receiverChatroomRef, updatedReceiverChatroom);
+
+					        // Get receiver's unread chatroom messages
+					        return admin.firestore()
+					        	.collection('chatrooms')
+					        	.doc(chatroomUid)
+					        	.collection('messages')
+					        	.where('isRead', '==', false)
+					        	.where('receiver_uid', '==', receiverUid)
+					        	.get()
+				    	})
+				    	.then(snapshot => {
+    						// Count the number of unread chatroom messages
+							const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
+
+					    	console.log('unreadMessageCount = ', unreadMessageCount);
+
+							// In receiver's chatroom we must also update new message counter.
+							// So we copy updatedChatroom into updatedReceiverChatroom
+							// and add one more property for new message count.
+							let updatedReceiverChatroom = Object.assign({}, updatedChatroom);
+							updatedReceiverChatroom["newMessageCount"] = unreadMessageCount;
+
+				    		return transaction.update(receiverChatroomRef, updatedReceiverChatroom);
 				    	})
 					})
 					.then(result => {
