@@ -96,6 +96,40 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
     	}
     });
 
+// -----------------------
+
+// If user's username has been updated,
+// update it in all chatrooms, this user participates in.
+exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
+	// This is triggered on document update
+    .onUpdate((change, context) => {
+    	console.log('User has been updated');
+
+    	// Get old user
+    	const oldUser = change.before.data();
+    	// Get new user
+    	const newUser = change.after.data();
+
+    	const oldUsername = oldUser.username;
+    	const newUsername = newUser.username;
+
+    	if (oldUsername !== newUsername) {
+    		// Username changed, update it in the chatrooms of the user
+
+    		console.log('Username changed');
+    		console.log('Old username = ', oldUsername);
+    		console.log('New username = ', newUsername);
+
+    		// TODO: update chatrooms here
+    		return null;
+
+    	} else {
+    		// Username not changed, do nothing
+    		console.log('Username not changed, do nothing');
+	    	return null;
+    	}
+    });
+
 // === Functions ===
 
 function getUserNameOrUsername(name, userName) {
