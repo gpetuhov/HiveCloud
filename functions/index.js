@@ -140,12 +140,16 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
 			            console.log('Number of user chatrooms = ', snapshot.size);
 
 			            let updateChatroomPromiseArray = [];
-			 
+
+                        // For all chatrooms of the user
 		                for (let i = 0; i < snapshot.size; i++) {
 		                    const chatroom = snapshot.docs[i].data();
 		                	const chatroomUid = snapshot.docs[i].id;
 
 				            console.log('Chatroom uid = ', chatroomUid);
+
+				            const userUid1 = chatroom.userUid1;
+				            const userUid2 = chatroom.userUid2;
 
 				            const userName1 = chatroom.userName1;
 				            const userName2 = chatroom.userName2;
@@ -163,8 +167,10 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
 								userName2: `${secondUserName}`
 							};
 
-							const updateUsernameInChatroomPromise = getUpdateUsernameInChatroomPromise(userUid, chatroomUid, updatedChatroom);
-							updateChatroomPromiseArray.push(updateUsernameInChatroomPromise);
+					        // Change username in the chatroom for BOTH users,
+					        // that participate in this chatroom.
+							updateChatroomPromiseArray.push(getUpdateChatroomForUserPromise(chatroomUid, userUid1, updatedChatroom));
+							updateChatroomPromiseArray.push(getUpdateChatroomForUserPromise(chatroomUid, userUid2, updatedChatroom));
 		                }
 
               			console.log('Updating chatrooms');
@@ -399,7 +405,7 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
 		});
 }
 
-function getUpdateUsernameInChatroomPromise(userUid, chatroomUid, updatedChatroom) {
+function getUpdateChatroomForUserPromise(chatroomUid, userUid, updatedChatroom) {
     const chatroomRef = getUserChatroomRef(userUid, chatroomUid);
 
 	return admin.firestore().runTransaction(transaction => {
