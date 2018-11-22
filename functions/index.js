@@ -136,47 +136,12 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
     			.collection('chatroomsOfUser')
     			.get()
     			.then(snapshot => {
-    				if (!snapshot.empty) { 
-			            console.log('Number of user chatrooms = ', snapshot.size);
+    				if (!snapshot.empty) {
+    					// Update username in chatrooms
+    					return getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername);
 
-			            let updateChatroomPromiseArray = [];
-
-                        // For all chatrooms of the user
-		                for (let i = 0; i < snapshot.size; i++) {
-		                    const chatroom = snapshot.docs[i].data();
-		                	const chatroomUid = snapshot.docs[i].id;
-
-				            console.log('Chatroom uid = ', chatroomUid);
-
-				            const userUid1 = chatroom.userUid1;
-				            const userUid2 = chatroom.userUid2;
-
-				            const userName1 = chatroom.userName1;
-				            const userName2 = chatroom.userName2;
-
-        					console.log('userName1 = ', userName1);
-        					console.log('userName2 = ', userName2);
-
-				            // Second user name is the one that is not equal to OLD name of the user
-        					const secondUserName = userName1 !== oldUsername ? userName1 : userName2;
-
-        					console.log('secondUserName = ', secondUserName);
-
-        					const updatedChatroom = {
-								userName1: `${newUsername}`,
-								userName2: `${secondUserName}`
-							};
-
-					        // Change username in the chatroom for BOTH users,
-					        // that participate in this chatroom.
-							updateChatroomPromiseArray.push(getUpdateChatroomForUserPromise(chatroomUid, userUid1, updatedChatroom));
-							updateChatroomPromiseArray.push(getUpdateChatroomForUserPromise(chatroomUid, userUid2, updatedChatroom));
-		                }
-
-              			console.log('Updating chatrooms');
-		                return Promise.all(updateChatroomPromiseArray);
-
-            		} else { 
+            		} else {
+            			// No user chatrooms found, do nothing
               			console.log('No user chatrooms found');
               			return null;
             		} 
@@ -403,6 +368,47 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
 			console.log('Transaction failure:', err);
 			return null;
 		});
+}
+
+function getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername) {
+    console.log('Number of user chatrooms = ', snapshot.size);
+
+    let updateChatroomPromiseArray = [];
+
+    // For all chatrooms of the user
+    for (let i = 0; i < snapshot.size; i++) {
+        const chatroom = snapshot.docs[i].data();
+    	const chatroomUid = snapshot.docs[i].id;
+
+        console.log('Chatroom uid = ', chatroomUid);
+
+        const userUid1 = chatroom.userUid1;
+        const userUid2 = chatroom.userUid2;
+
+        const userName1 = chatroom.userName1;
+        const userName2 = chatroom.userName2;
+
+		console.log('userName1 = ', userName1);
+		console.log('userName2 = ', userName2);
+
+        // Second user name is the one that is not equal to OLD name of the user
+		const secondUserName = userName1 !== oldUsername ? userName1 : userName2;
+
+		console.log('secondUserName = ', secondUserName);
+
+		const updatedChatroom = {
+			userName1: `${newUsername}`,
+			userName2: `${secondUserName}`
+		};
+
+        // Create promises to change username in the chatroom for BOTH users,
+        // that participate in this chatroom.
+		updateChatroomPromiseArray.push(getUpdateChatroomForUserPromise(chatroomUid, userUid1, updatedChatroom));
+		updateChatroomPromiseArray.push(getUpdateChatroomForUserPromise(chatroomUid, userUid2, updatedChatroom));
+    }
+
+	console.log('Updating chatrooms');
+    return Promise.all(updateChatroomPromiseArray);
 }
 
 function getUpdateChatroomForUserPromise(chatroomUid, userUid, updatedChatroom) {
