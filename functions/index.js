@@ -22,10 +22,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
       	const messageTimestamp = message.timestamp;
 
         let senderName;
-        let receiverName;
-        let receiverToken;
-
-		let chatroomUid;
 
 		// Get sender user
 		// (in return statement, because this method must return promise)
@@ -49,41 +45,28 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
  	   	        const receiver = doc.data();
 
 		        // Init receiver name with username or name
-		        receiverName = getUserNameOrUsername(receiver.name, receiver.username);
+		        const receiverName = getUserNameOrUsername(receiver.name, receiver.username);
 
 				// Get receiver user's FCM token		        	
-		        receiverToken = receiver.fcm_token;
+		        const receiverToken = receiver.fcm_token;
+
+		        // Create promise to send FCM message to the device with specified FCM token.
+		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, messageText, receiverToken);
 
 		        // Create chatroom UID
-		        chatroomUid = getChatroomUid(senderUid, receiverUid);
+		        const chatroomUid = getChatroomUid(senderUid, receiverUid);
 
 		        // Chatrooms are updated inside transactions
 		        // to prevent corrupting data by parallel function execution.
 				const updateSenderChatroomPromise = getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText);
 				const updateReceiverChatroomPromise = getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText);
 
-				// Update sender and receiver chatrooms
-				return Promise.all([updateSenderChatroomPromise, updateReceiverChatroomPromise]);
+				// Send notification and update sender and receiver chatrooms
+				return Promise.all([sendNotificationPromise, updateSenderChatroomPromise, updateReceiverChatroomPromise]);
 			})
 			.then(response => {
-		        // Create FCM message with sender uid and name and message text.
-		        // We must send DATA FCM message, not notification message
-		        // (message contains only "data" part).
-		        // This is because notification messages do not trigger
-		        // FirebaseMessagingService.onMessageReceived() on the Android device,
-		        // when the app is in the BACKGROUND, and we need to show 
-		        // new chat message notification exactly when the app is in the background.
-		        const payload = {
-		          data: {
-		    	    senderUid: `${senderUid}`,
-		    	    senderName: `${senderName}`,
-		            messageText: `${messageText}`
-		          }
-		        };
-
-		        // Send FCM message to the device with specified FCM token.
-		        // (again in return statement, because this method must return promise)
-		        return admin.messaging().sendToDevice(receiverToken, payload);
+				console.log('onNewChatMessage complete')
+		        return null;
             });
     });
 
@@ -199,6 +182,26 @@ function getChatroomUid(senderUid, receiverUid) {
 
 function getNewMessageCount(tempNewMessageCount) {
 	return (tempNewMessageCount !== undefined) ? tempNewMessageCount : 0;
+}
+
+function getSendNotificationPromise(senderUid, senderName, messageText, receiverToken) {
+    // Create FCM message with sender uid and name and message text.
+    // We must send DATA FCM message, not notification message
+    // (message contains only "data" part).
+    // This is because notification messages do not trigger
+    // FirebaseMessagingService.onMessageReceived() on the Android device,
+    // when the app is in the BACKGROUND, and we need to show 
+    // new chat message notification exactly when the app is in the background.
+    const payload = {
+      data: {
+	    senderUid: `${senderUid}`,
+	    senderName: `${senderName}`,
+        messageText: `${messageText}`
+      }
+    };
+
+    // Create promise to send FCM message to the device with specified FCM token.
+    return admin.messaging().sendToDevice(receiverToken, payload);
 }
 
 function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText) {
