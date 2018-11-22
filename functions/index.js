@@ -163,8 +163,6 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 	return admin.firestore().runTransaction(transaction => {
 		    return transaction.get(senderChatroomRef)
 				.then(doc => {
-					console.log('Update sender chatroom transaction start');
-
 					// Get sender chatroom
 					const senderChatroom = doc.data();
 
@@ -174,18 +172,16 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 					// Update sender chatroom only if this message is newer, 
 					// than the last message in the chatroom.
 					if (messageTimestamp > senderChatroomCurrentLastMessageTimestamp) {
-						console.log('Updating sender chatroom');
 						updatedSenderChatroom = updateChatroomLastMessage(updatedSenderChatroom, senderUid, messageText, messageTimestamp);
 						return transaction.update(senderChatroomRef, updatedSenderChatroom);
 
 					} else {
-						console.log('Message is older than sender chatroom last message, do not update');
+						// Message is older than sender chatroom last message, do not update
 						return null;
 					}
 		    	})
 		})
 		.then(result => {
-			console.log('Update sender chatroom transaction success!');
 			return null;
 		})
 		.catch(err => {
@@ -205,8 +201,6 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 
 	    	return transaction.get(receiverChatroomRef)
 	    		.then(doc => {
-					console.log('Update receiver chatroom transaction start');
-
 					// Get receiver chatroom
 					const receiverChatroom = doc.data();
 
@@ -221,15 +215,11 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 					// Count the number of unread chatroom messages
 					const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
 
-			    	console.log('unreadMessageCount = ', unreadMessageCount);
-
 			    	let isCountUpdated = false;
 			    	let isLastMessageUpdated = false;
 
+				    // New message count in the receiver chatroom must be updated only if it is different
 			    	if (unreadMessageCount !== receiverChatroomCurrentNewMessageCount) {
-			    		console.log('Include new message count into receiver chatroom update');
-
-				    	// New message count in the receiver chatroom must be updated if is different
 						updatedReceiverChatroom["newMessageCount"] = unreadMessageCount;
 						isCountUpdated = true;
 			    	}
@@ -237,7 +227,6 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 					// Last message in the receiver chatroom should be updated,
 					// only if this message is newer.
 			    	if (messageTimestamp > receiverChatroomCurrentLastMessageTimestamp) {
-			    		console.log('Include last message into receiver chatroom update');
 						updatedReceiverChatroom = updateChatroomLastMessage(updatedReceiverChatroom, senderUid, messageText, messageTimestamp);			    		
 						isLastMessageUpdated = true;
 			    	}
@@ -245,18 +234,15 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 			    	if (isCountUpdated || isLastMessageUpdated) {
 			    		// If new message count or last message should be updated, 
 			    		// then update receiver chatroom.
-			    		console.log('Updating receiver chatroom');
 			    		return transaction.update(receiverChatroomRef, updatedReceiverChatroom);
 
 			    	} else {
 			    		// If nothing should be updated, do nothing.
-			    		console.log('Nothing to update in receiver chatroom, do nothing');
 			    		return null;
 			    	}
 		    	})
 		})
 		.then(result => {
-			console.log('Update receiver chatroom transaction success!');
 			return null;
 		})
 		.catch(err => {
@@ -279,19 +265,13 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
 
 		    return transaction.get(receiverChatroomRef)
 	    		.then(doc => {
-					console.log('Transaction start');
-
 					// Get receiver chatroom from the document
 					const receiverChatroom = doc.data();
 
 					currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
 
-					console.log('Current count = ', currentReceiverNewMessageCount);
-
 					if (currentReceiverNewMessageCount === 0) {
 						// Do nothing, if new message count is already 0
-						console.log('Current count is already 0, do nothing');
-
 						return null;
 
 					} else {
@@ -304,8 +284,6 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
 						// Count the number of unread chatroom messages
 						const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
 
-				    	console.log('unreadMessageCount = ', unreadMessageCount);
-
 				    	if (unreadMessageCount !== currentReceiverNewMessageCount) {
 				    		// If the number of unread chatroom messages is different from the current new message count,
 					    	// update new message count of the receiver's chatroom with the number of unread messages.
@@ -313,20 +291,17 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
 				    	
 				    	} else {
 				    		// Current new message count is already correct, do nothing
-					    	console.log('Current new message count is already correct, do nothing');
 				    		return null;
 				    	}
 
 				    } else {
 				    	// Snapshot is null (because current new message count is already 0 int previous then()),
 				    	// do nothing.
-				    	console.log('Snapshot is null, do nothing');
 				    	return null;
 				    }
 				})
 		})
 		.then(result => {
-			console.log('Transaction success!');
 			return null;
 		})
 		.catch(err => {
