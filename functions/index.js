@@ -120,6 +120,8 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 	        // (the receiver's chatroom new message counter)
 	        // is modified by another function instance execution.
 			return admin.firestore().runTransaction(transaction => {
+				let currentReceiverNewMessageCount;
+
   		    	return transaction.get(receiverChatroomRef)
 		    		.then(doc => {
 						console.log('Transaction start');
@@ -127,7 +129,7 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 						// Get receiver chatroom from the document
 						const receiverChatroom = doc.data();
 
-						const currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
+						currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
 
 						console.log('Current count = ', currentReceiverNewMessageCount);
 
@@ -138,7 +140,7 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 							return null;
 
 						} else {
-					        // Get receiver's unread chatroom messages
+					        // Otherwise get receiver's unread chatroom messages
 					        return admin.firestore()
 					        	.collection('chatrooms')
 					        	.doc(chatroomUid)
@@ -155,8 +157,16 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 
 					    	console.log('unreadMessageCount = ', unreadMessageCount);
 
-					    	// Update new message count of the receiver's chatroom with the number of unread messages
-					      	return transaction.update(receiverChatroomRef, {newMessageCount: unreadMessageCount});
+					    	if (unreadMessageCount !== currentReceiverNewMessageCount) {
+					    		// If the number of unread chatroom messages is different from the current new message count,
+						    	// update new message count of the receiver's chatroom with the number of unread messages.
+						      	return transaction.update(receiverChatroomRef, {newMessageCount: unreadMessageCount});
+					    	
+					    	} else {
+					    		// Current new message count is already correct, do nothing
+						    	console.log('Current new message count is already correct, do nothing');
+					    		return null;
+					    	}
 
 					    } else {
 					    	// Snapshot is null (because current new message count is already 0 int previous then()),
