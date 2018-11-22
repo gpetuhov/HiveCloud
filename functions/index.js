@@ -55,8 +55,8 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 
 		        // Chatrooms are updated inside transactions
 		        // to prevent corrupting data by parallel function execution.
-				const updateSenderChatroomPromise = getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText);
-				const updateReceiverChatroomPromise = getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText);
+				const updateSenderChatroomPromise = getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText);
+				const updateReceiverChatroomPromise = getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText);
 
 				// Send notification and update sender and receiver chatrooms
 				return Promise.all([sendNotificationPromise, updateSenderChatroomPromise, updateReceiverChatroomPromise]);
@@ -84,76 +84,8 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
     		return null;
 
     	} else {
-	        // Create chatroom UID
-	        const chatroomUid = getChatroomUid(senderUid, receiverUid);
-
-	        // Receiver's chatroom reference
-	        const receiverChatroomRef = getUserChatroomRef(receiverUid, chatroomUid);
-
-	        // Run new message counter update inside the transaction
-	        // to prevent corrupting data by parallel function execution.
-	        // Transaction will restart from the beginning, if the data
-	        // (the receiver's chatroom new message counter)
-	        // is modified by another function instance execution.
-			return admin.firestore().runTransaction(transaction => {
-				let currentReceiverNewMessageCount;
-
-  		    	return transaction.get(receiverChatroomRef)
-		    		.then(doc => {
-						console.log('Transaction start');
-
-						// Get receiver chatroom from the document
-						const receiverChatroom = doc.data();
-
-						currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
-
-						console.log('Current count = ', currentReceiverNewMessageCount);
-
-						if (currentReceiverNewMessageCount === 0) {
-							// Do nothing, if new message count is already 0
-							console.log('Current count is already 0, do nothing');
-
-							return null;
-
-						} else {
-					        // Otherwise get receiver's unread chatroom messages
-					        return getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid);
-						}
-			    	})
-					.then(snapshot => {
-						if (snapshot !== null) {
-							// Count the number of unread chatroom messages
-							const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
-
-					    	console.log('unreadMessageCount = ', unreadMessageCount);
-
-					    	if (unreadMessageCount !== currentReceiverNewMessageCount) {
-					    		// If the number of unread chatroom messages is different from the current new message count,
-						    	// update new message count of the receiver's chatroom with the number of unread messages.
-						      	return transaction.update(receiverChatroomRef, {newMessageCount: unreadMessageCount});
-					    	
-					    	} else {
-					    		// Current new message count is already correct, do nothing
-						    	console.log('Current new message count is already correct, do nothing');
-					    		return null;
-					    	}
-
-					    } else {
-					    	// Snapshot is null (because current new message count is already 0 int previous then()),
-					    	// do nothing.
-					    	console.log('Snapshot is null, do nothing');
-					    	return null;
-					    }
-					})
-				})
-				.then(result => {
-					console.log('Transaction success!');
-					return null;
-				})
-				.catch(err => {
-					console.log('Transaction failure:', err);
-					return null;
-				});
+    		// Otherwise update receiver chatroom
+    		return getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid);
     	}
     });
 
@@ -215,7 +147,7 @@ function getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid) {
 		.get()
 }
 
-function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
+function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
     const chatroomUid = getChatroomUid(senderUid, receiverUid);
 	const senderChatroomRef = getUserChatroomRef(senderUid, chatroomUid);
 	let updatedSenderChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
@@ -259,7 +191,7 @@ function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, rece
 		});
 }
 
-function getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
+function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
     const chatroomUid = getChatroomUid(senderUid, receiverUid);
 	const receiverChatroomRef = getUserChatroomRef(receiverUid, chatroomUid);
 	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
@@ -330,6 +262,76 @@ function getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, re
 		})
 		.catch(err => {
 			console.log('Update receiver chatroom transaction failure:', err);
+			return null;
+		});
+}
+
+function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
+    const chatroomUid = getChatroomUid(senderUid, receiverUid);
+    const receiverChatroomRef = getUserChatroomRef(receiverUid, chatroomUid);
+
+    // Run new message counter update inside the transaction
+    // to prevent corrupting data by parallel function execution.
+    // Transaction will restart from the beginning, if the data
+    // (the receiver's chatroom new message counter)
+    // is modified by another function instance execution.
+	return admin.firestore().runTransaction(transaction => {
+			let currentReceiverNewMessageCount;
+
+		    return transaction.get(receiverChatroomRef)
+	    		.then(doc => {
+					console.log('Transaction start');
+
+					// Get receiver chatroom from the document
+					const receiverChatroom = doc.data();
+
+					currentReceiverNewMessageCount = getNewMessageCount(receiverChatroom.newMessageCount);
+
+					console.log('Current count = ', currentReceiverNewMessageCount);
+
+					if (currentReceiverNewMessageCount === 0) {
+						// Do nothing, if new message count is already 0
+						console.log('Current count is already 0, do nothing');
+
+						return null;
+
+					} else {
+				        // Otherwise get receiver's unread chatroom messages
+				        return getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid);
+					}
+		    	})
+				.then(snapshot => {
+					if (snapshot !== null) {
+						// Count the number of unread chatroom messages
+						const unreadMessageCount = snapshot.empty ? 0 : snapshot.size;
+
+				    	console.log('unreadMessageCount = ', unreadMessageCount);
+
+				    	if (unreadMessageCount !== currentReceiverNewMessageCount) {
+				    		// If the number of unread chatroom messages is different from the current new message count,
+					    	// update new message count of the receiver's chatroom with the number of unread messages.
+					      	return transaction.update(receiverChatroomRef, {newMessageCount: unreadMessageCount});
+				    	
+				    	} else {
+				    		// Current new message count is already correct, do nothing
+					    	console.log('Current new message count is already correct, do nothing');
+				    		return null;
+				    	}
+
+				    } else {
+				    	// Snapshot is null (because current new message count is already 0 int previous then()),
+				    	// do nothing.
+				    	console.log('Snapshot is null, do nothing');
+				    	return null;
+				    }
+				})
+		})
+		.then(result => {
+			console.log('Transaction success!');
+			return null;
+		})
+		.catch(err => {
+			console.log('Transaction failure:', err);
 			return null;
 		});
 }
