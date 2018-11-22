@@ -112,9 +112,9 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
 
     	const userUid = context.params.userUid;
 
-    	// If username was not defined, then use user name as old username
-    	const oldUsername = oldUser.username !== undefined ? oldUser.username : oldUser.name;
-    	const newUsername = newUser.username;
+    	// If username is not defined, then use user name
+    	const oldUsername = getUserNameOrUsername(oldUser.name, oldUser.username);
+    	const newUsername = getUserNameOrUsername(newUser.name, newUser.username);
 
     	console.log('userUid = ', userUid);
 
