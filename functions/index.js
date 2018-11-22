@@ -110,23 +110,47 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
     	// Get new user
     	const newUser = change.after.data();
 
+    	const userUid = context.params.userUid;
     	const oldUsername = oldUser.username;
     	const newUsername = newUser.username;
 
-    	if (oldUsername !== newUsername) {
-    		// Username changed, update it in the chatrooms of the user
+    	console.log('userUid = ', userUid);
 
+    	if (oldUsername === newUsername) {
+    		// Username not changed, do nothing
+    		console.log('Username not changed, do nothing');
+	    	return null;
+
+    	} else {
+    		// Username changed, update it in the chatrooms of the user
     		console.log('Username changed');
     		console.log('Old username = ', oldUsername);
     		console.log('New username = ', newUsername);
 
-    		// TODO: update chatrooms here
-    		return null;
+    		// Get user's chatrooms
+    		return admin.firestore()
+    			.collection('userChatrooms')
+    			.doc(userUid)
+    			.collection('chatroomsOfUser')
+    			.get()
+    			.then(snapshot => {
+    				if (!snapshot.empty) { 
+			            console.log('Number of user chatrooms = ', snapshot.size); 
+			 
+		                for (let i = 0; i < snapshot.size; i++) { 
+		                    const chatroom = snapshot.docs[i].data(); 
+				            console.log('Chatroom uid = ', snapshot.docs[i].id);
 
-    	} else {
-    		// Username not changed, do nothing
-    		console.log('Username not changed, do nothing');
-	    	return null;
+				            // TODO: save new username into chatroom here
+		                }
+
+		                return null;
+
+            		} else { 
+              			console.log('No user chatrooms found') ;
+              			return null;
+            		} 
+    			});
     	}
     });
 
