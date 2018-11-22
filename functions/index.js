@@ -9,6 +9,9 @@ admin.initializeApp();
 // Listen for new chat messages added to /chatrooms/:chatroomId/messages/:messageId ,
 // update corresponding chatroom of the sender and the receiver,
 // and send data FCM message to the receiver of the new chat message.
+// Note that if the function does not execute for some reason (due to error or server down),
+// then chatrooms will NOT be updated. Only next time the function is invoked 
+// (when another new message is created). There is nothing we can do about it.
 exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
 	// This is triggered on new document creation
     .onCreate((snap, context) => {
@@ -67,6 +70,10 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 
 // If the message is marked as read, determine current number of unread messages
 // and update new message count of the receiver's chatroom with this number.
+// Note that if this function is not executed, 
+// then the receiver chatroom counter will not be updated
+// (only after the sender sends another message, and the receiver receives it).
+// There is nothing we can do about it.
 exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroomUid}/messages/{messageUid}')
 	// This is triggered on document update
     .onUpdate((change, context) => {
