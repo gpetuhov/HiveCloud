@@ -129,23 +129,7 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
     		console.log('Old username = ', oldUsername);
     		console.log('New username = ', newUsername);
 
-    		// Get user's chatrooms
-    		return admin.firestore()
-    			.collection('userChatrooms')
-    			.doc(userUid)
-    			.collection('chatroomsOfUser')
-    			.get()
-    			.then(snapshot => {
-    				if (!snapshot.empty) {
-    					// Update username in chatrooms
-    					return getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername);
-
-            		} else {
-            			// No user chatrooms found, do nothing
-              			console.log('No user chatrooms found');
-              			return null;
-            		} 
-    			});
+    		return getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername);
     	}
     });
 
@@ -367,6 +351,26 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
 		.catch(err => {
 			console.log('Transaction failure:', err);
 			return null;
+		});
+}
+
+function getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername) {
+	// Get user's chatrooms and update username inside them
+	return admin.firestore()
+		.collection('userChatrooms')
+		.doc(userUid)
+		.collection('chatroomsOfUser')
+		.get()
+		.then(snapshot => {
+			if (!snapshot.empty) {
+				// Update username in chatrooms
+				return getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername);
+
+    		} else {
+    			// No user chatrooms found, do nothing
+      			console.log('No user chatrooms found');
+      			return null;
+    		} 
 		});
 }
 
