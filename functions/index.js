@@ -117,6 +117,14 @@ function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName) {
 	};
 }
 
+function updateChatroomLastMessage(chatroom, senderUid, messageText, messageTimestamp) {
+	chatroom["lastMessageSenderUid"] = `${senderUid}`;
+	chatroom["lastMessageText"] = `${messageText}`;
+	chatroom["lastMessageTimestamp"] = messageTimestamp;					    		
+
+	return chatroom;
+}
+
 function getSendNotificationPromise(senderUid, senderName, messageText, receiverToken) {
     // Create FCM message with sender uid and name and message text.
     // We must send DATA FCM message, not notification message
@@ -167,12 +175,7 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 					// than the last message in the chatroom.
 					if (messageTimestamp > senderChatroomCurrentLastMessageTimestamp) {
 						console.log('Updating sender chatroom');
-
-						// Update sender chatroom last message
-						updatedSenderChatroom["lastMessageSenderUid"] = `${senderUid}`;
-						updatedSenderChatroom["lastMessageText"] = `${messageText}`;
-						updatedSenderChatroom["lastMessageTimestamp"] = messageTimestamp;
-
+						updatedSenderChatroom = updateChatroomLastMessage(updatedSenderChatroom, senderUid, messageText, messageTimestamp);
 						return transaction.update(senderChatroomRef, updatedSenderChatroom);
 
 					} else {
@@ -235,11 +238,7 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 					// only if this message is newer.
 			    	if (messageTimestamp > receiverChatroomCurrentLastMessageTimestamp) {
 			    		console.log('Include last message into receiver chatroom update');
-
-	    				updatedReceiverChatroom["lastMessageSenderUid"] = `${senderUid}`;
-						updatedReceiverChatroom["lastMessageText"] = `${messageText}`;
-						updatedReceiverChatroom["lastMessageTimestamp"] = messageTimestamp;					    		
-
+						updatedReceiverChatroom = updateChatroomLastMessage(updatedReceiverChatroom, senderUid, messageText, messageTimestamp);			    		
 						isLastMessageUpdated = true;
 			    	}
 
