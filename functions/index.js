@@ -103,32 +103,20 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
 	// This is triggered on document update
     .onUpdate((change, context) => {
-    	console.log('User has been updated');
-
-    	// Get old user
     	const oldUser = change.before.data();
-    	// Get new user
     	const newUser = change.after.data();
-
     	const userUid = context.params.userUid;
 
     	// If username is not defined, then use user name
     	const oldUsername = getUserNameOrUsername(oldUser.name, oldUser.username);
     	const newUsername = getUserNameOrUsername(newUser.name, newUser.username);
 
-    	console.log('userUid = ', userUid);
-
     	if (oldUsername === newUsername) {
     		// Username not changed, do nothing
-    		console.log('Username not changed, do nothing');
 	    	return null;
 
     	} else {
     		// Username changed, update it in the chatrooms of the user
-    		console.log('Username changed');
-    		console.log('Old username = ', oldUsername);
-    		console.log('New username = ', newUsername);
-
     		return getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername);
     	}
     });
@@ -368,37 +356,25 @@ function getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername) {
 
     		} else {
     			// No user chatrooms found, do nothing
-      			console.log('No user chatrooms found');
       			return null;
     		} 
 		});
 }
 
 function getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername) {
-    console.log('Number of user chatrooms = ', snapshot.size);
-
     let updateChatroomPromiseArray = [];
 
     // For all chatrooms of the user
     for (let i = 0; i < snapshot.size; i++) {
         const chatroom = snapshot.docs[i].data();
     	const chatroomUid = snapshot.docs[i].id;
-
-        console.log('Chatroom uid = ', chatroomUid);
-
         const userUid1 = chatroom.userUid1;
         const userUid2 = chatroom.userUid2;
-
         const userName1 = chatroom.userName1;
         const userName2 = chatroom.userName2;
 
-		console.log('userName1 = ', userName1);
-		console.log('userName2 = ', userName2);
-
         // Second user name is the one that is not equal to OLD name of the user
 		const secondUserName = userName1 !== oldUsername ? userName1 : userName2;
-
-		console.log('secondUserName = ', secondUserName);
 
 		const updatedChatroom = {
 			userName1: `${newUsername}`,
@@ -411,7 +387,6 @@ function getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername)
 		updateChatroomPromiseArray.push(getUpdateChatroomForUserPromise(chatroomUid, userUid2, updatedChatroom));
     }
 
-	console.log('Updating chatrooms');
     return Promise.all(updateChatroomPromiseArray);
 }
 
@@ -421,12 +396,10 @@ function getUpdateChatroomForUserPromise(chatroomUid, userUid, updatedChatroom) 
 	return admin.firestore().runTransaction(transaction => {
 		    return transaction.get(chatroomRef)
 				.then(doc => {
-					console.log('Update username in chatroom transaction start');
 					return transaction.update(chatroomRef, updatedChatroom);
 		    	})
 		})
 		.then(result => {
-			console.log('Update username in chatroom transaction success');
 			return null;
 		})
 		.catch(err => {
