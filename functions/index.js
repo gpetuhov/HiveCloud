@@ -88,7 +88,7 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 	        const chatroomUid = getChatroomUid(senderUid, receiverUid);
 
 	        // Receiver's chatroom reference
-	        const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
+	        const receiverChatroomRef = getUserChatroomRef(receiverUid, chatroomUid);
 
 	        // Run new message counter update inside the transaction
 	        // to prevent corrupting data by parallel function execution.
@@ -117,13 +117,7 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 
 						} else {
 					        // Otherwise get receiver's unread chatroom messages
-					        return admin.firestore()
-					        	.collection('chatrooms')
-					        	.doc(chatroomUid)
-					        	.collection('messages')
-					        	.where('isRead', '==', false)
-					        	.where('receiver_uid', '==', receiverUid)
-								.get()
+					        return getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid);
 						}
 			    	})
 					.then(snapshot => {
@@ -177,6 +171,20 @@ function getNewMessageCount(tempNewMessageCount) {
 	return (tempNewMessageCount !== undefined) ? tempNewMessageCount : 0;
 }
 
+function getUserChatroomRef(userUid, chatroomUid) {
+	return admin.firestore().collection('userChatrooms').doc(userUid).collection('chatroomsOfUser').doc(chatroomUid);
+}
+
+function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName) {
+	// These properties are updated anyway
+	return {
+		userUid1: `${senderUid}`,
+		userUid2: `${receiverUid}`,
+		userName1: `${senderName}`,
+		userName2: `${receiverName}`
+	};
+}
+
 function getSendNotificationPromise(senderUid, senderName, messageText, receiverToken) {
     // Create FCM message with sender uid and name and message text.
     // We must send DATA FCM message, not notification message
@@ -197,12 +205,20 @@ function getSendNotificationPromise(senderUid, senderName, messageText, receiver
     return admin.messaging().sendToDevice(receiverToken, payload);
 }
 
+function getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid) {
+    return admin.firestore()
+    	.collection('chatrooms')
+    	.doc(chatroomUid)
+    	.collection('messages')
+    	.where('isRead', '==', false)
+    	.where('receiver_uid', '==', receiverUid)
+		.get()
+}
+
 function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
     const chatroomUid = getChatroomUid(senderUid, receiverUid);
-
+	const senderChatroomRef = getUserChatroomRef(senderUid, chatroomUid);
 	let updatedSenderChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
-
-	const senderChatroomRef = admin.firestore().collection('userChatrooms').doc(senderUid).collection('chatroomsOfUser').doc(chatroomUid);
 
 	return admin.firestore().runTransaction(transaction => {
 		    return transaction.get(senderChatroomRef)
@@ -245,10 +261,8 @@ function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, rece
 
 function getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
     const chatroomUid = getChatroomUid(senderUid, receiverUid);
-
+	const receiverChatroomRef = getUserChatroomRef(receiverUid, chatroomUid);
 	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
-
-	const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
 
 	return admin.firestore().runTransaction(transaction => {
 			let receiverChatroomCurrentLastMessageTimestamp = 0;
@@ -266,13 +280,7 @@ function getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, re
 					receiverChatroomCurrentNewMessageCount = receiverChatroom.newMessageCount;
 
 			        // Get receiver's unread chatroom messages
-			        return admin.firestore()
-			        	.collection('chatrooms')
-			        	.doc(chatroomUid)
-			        	.collection('messages')
-			        	.where('isRead', '==', false)
-			        	.where('receiver_uid', '==', receiverUid)
-			        	.get()
+			        return getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid);
 		    	})
 		    	.then(snapshot => {
 					// Count the number of unread chatroom messages
@@ -324,14 +332,4 @@ function getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, re
 			console.log('Update receiver chatroom transaction failure:', err);
 			return null;
 		});
-}
-
-function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName) {
-	// These properties are updated anyway
-	return {
-		userUid1: `${senderUid}`,
-		userUid2: `${receiverUid}`,
-		userName1: `${senderName}`,
-		userName2: `${receiverName}`
-	};
 }
