@@ -53,20 +53,13 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        // Create promise to send FCM message to the device with specified FCM token.
 		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, messageText, receiverToken);
 
-		        // Create chatroom UID
-		        const chatroomUid = getChatroomUid(senderUid, receiverUid);
-
 		        // Chatrooms are updated inside transactions
 		        // to prevent corrupting data by parallel function execution.
-				const updateSenderChatroomPromise = getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText);
-				const updateReceiverChatroomPromise = getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText);
+				const updateSenderChatroomPromise = getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText);
+				const updateReceiverChatroomPromise = getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText);
 
 				// Send notification and update sender and receiver chatrooms
 				return Promise.all([sendNotificationPromise, updateSenderChatroomPromise, updateReceiverChatroomPromise]);
-			})
-			.then(response => {
-				console.log('onNewChatMessage complete')
-		        return null;
             });
     });
 
@@ -204,7 +197,9 @@ function getSendNotificationPromise(senderUid, senderName, messageText, receiver
     return admin.messaging().sendToDevice(receiverToken, payload);
 }
 
-function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText) {
+function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
+    const chatroomUid = getChatroomUid(senderUid, receiverUid);
+
 	let updatedSenderChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
 
 	const senderChatroomRef = admin.firestore().collection('userChatrooms').doc(senderUid).collection('chatroomsOfUser').doc(chatroomUid);
@@ -248,7 +243,9 @@ function getUpdateSenderChatroomPromise(senderUid, receiverUid, senderName, rece
 		});
 }
 
-function getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, chatroomUid, messageTimestamp, messageText) {
+function getUpdateReceiverChatroomPromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
+    const chatroomUid = getChatroomUid(senderUid, receiverUid);
+
 	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
 
 	const receiverChatroomRef = admin.firestore().collection('userChatrooms').doc(receiverUid).collection('chatroomsOfUser').doc(chatroomUid);
