@@ -167,7 +167,7 @@ function updateChatroomLastMessage(chatroom, senderUid, messageText, messageTime
 	return chatroom;
 }
 
-function getSendNotificationPromise(senderUid, senderName, messageText, messageTimestampValue, receiverToken) {
+function getSendNotificationPromise(senderUid, senderName, messageText, messageTimestampSeconds, receiverToken) {
     // Create FCM message with sender uid and name and message text.
     // We must send DATA FCM message, not notification message
     // (message contains only "data" part).
@@ -180,7 +180,7 @@ function getSendNotificationPromise(senderUid, senderName, messageText, messageT
 	    senderUid: `${senderUid}`,
 	    senderName: `${senderName}`,
         messageText: `${messageText}`,
-        messageTimestamp: `${messageTimestampValue}`
+        messageTimestamp: `${messageTimestampSeconds}`
       }
     };
 
