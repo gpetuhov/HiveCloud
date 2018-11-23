@@ -23,12 +23,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
      	const receiverUid = message.receiver_uid;
       	const messageText = message.message_text;
       	const messageTimestamp = message.timestamp;
-
-      	console.log('messageTimestamp = ', messageTimestamp);
-
       	const messageTimestampSeconds = getSeconds(messageTimestamp);
-
-      	console.log('messageTimestampSeconds = ', messageTimestampSeconds);
 
         let senderName;
 
