@@ -54,7 +54,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        const receiverToken = receiver.fcm_token;
 
 		        // Create promise to send FCM message to the device with specified FCM token.
-		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, messageText, receiverToken);
+		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, messageText, messageTimestamp, receiverToken);
 
 		        // Chatrooms are updated inside transactions
 		        // to prevent corrupting data by parallel function execution.
@@ -157,7 +157,7 @@ function updateChatroomLastMessage(chatroom, senderUid, messageText, messageTime
 	return chatroom;
 }
 
-function getSendNotificationPromise(senderUid, senderName, messageText, receiverToken) {
+function getSendNotificationPromise(senderUid, senderName, messageText, messageTimestampValue, receiverToken) {
     // Create FCM message with sender uid and name and message text.
     // We must send DATA FCM message, not notification message
     // (message contains only "data" part).
@@ -169,7 +169,8 @@ function getSendNotificationPromise(senderUid, senderName, messageText, receiver
       data: {
 	    senderUid: `${senderUid}`,
 	    senderName: `${senderName}`,
-        messageText: `${messageText}`
+        messageText: `${messageText}`,
+        messageTimestamp: `${messageTimestampValue}`
       }
     };
 
