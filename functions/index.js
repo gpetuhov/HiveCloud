@@ -24,6 +24,12 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
       	const messageText = message.message_text;
       	const messageTimestamp = message.timestamp;
 
+      	console.log('messageTimestamp = ', messageTimestamp);
+
+      	const messageTimestampSeconds = getSeconds(messageTimestamp);
+
+      	console.log('messageTimestampSeconds = ', messageTimestampSeconds);
+
         let senderName;
 
 		// Get sender user
@@ -54,7 +60,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        const receiverToken = receiver.fcm_token;
 
 		        // Create promise to send FCM message to the device with specified FCM token.
-		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, messageText, messageTimestamp, receiverToken);
+		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, messageText, messageTimestampSeconds, receiverToken);
 
 		        // Chatrooms are updated inside transactions
 		        // to prevent corrupting data by parallel function execution.
@@ -122,6 +128,10 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
     });
 
 // === Functions ===
+
+function getSeconds(timestamp) {
+	return Date.parse(timestamp) / 1000;
+}
 
 function getUserNameOrUsername(name, userName) {
     return (userName !== undefined && userName !== "") ? userName : name;
