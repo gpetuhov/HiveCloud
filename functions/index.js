@@ -119,13 +119,16 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
     	const oldUsername = getUserNameOrUsername(oldUser.name, oldUser.username);
     	const newUsername = getUserNameOrUsername(newUser.name, newUser.username);
 
-    	if (oldUsername === newUsername) {
-    		// Username not changed, do nothing
+    	const oldUserPicUrl = oldUser.userPicUrl;
+    	const newUserPicUrl = newUser.userPicUrl;
+
+    	if (oldUsername === newUsername && oldUserPicUrl === newUserPicUrl) {
+    		// Username and user pic not changed, do nothing
 	    	return null;
 
     	} else {
-    		// Username changed, update it in the chatrooms of the user
-    		return getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername);
+    		// Username or user pic changed, update it in the chatrooms of the user
+    		return getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername, oldUserPicUrl, newUserPicUrl);
     	}
     });
 
@@ -358,7 +361,7 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
 		});
 }
 
-function getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername) {
+function getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername, oldUserPicUrl, newUserPicUrl) {
 	// Get user's chatrooms and update username inside them
 	return admin.firestore()
 		.collection('userChatrooms')
@@ -368,7 +371,7 @@ function getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername) {
 		.then(snapshot => {
 			if (!snapshot.empty) {
 				// Update username in chatrooms
-				return getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername);
+				return getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername, oldUserPicUrl, newUserPicUrl);
 
     		} else {
     			// No user chatrooms found, do nothing
@@ -377,7 +380,7 @@ function getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername) {
 		});
 }
 
-function getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername) {
+function getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername, oldUserPicUrl, newUserPicUrl) {
     let updateChatroomPromiseArray = [];
 
     // For all chatrooms of the user
@@ -388,13 +391,20 @@ function getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername)
         const userUid2 = chatroom.userUid2;
         const userName1 = chatroom.userName1;
         const userName2 = chatroom.userName2;
+        const userPicUrl1 = chatroom.userPicUrl1;
+        const userPicUrl2 = chatroom.userPicUrl2;
 
         // Second user name is the one that is not equal to OLD name of the user
 		const secondUserName = userName1 !== oldUsername ? userName1 : userName2;
 
+        // Second user pic URL is the one that is not equal to OLD user pic URL of the user
+		const secondUserPicUrl = userPicUrl1 !== oldUserPicUrl ? userPicUrl1 : userPicUrl2;
+
 		const updatedChatroom = {
 			userName1: `${newUsername}`,
-			userName2: `${secondUserName}`
+			userName2: `${secondUserName}`,
+			userPicUrl1: `${newUserPicUrl}`,
+			userPicUrl2: `${secondUserPicUrl}`
 		};
 
         // Create promises to change username in the chatroom for BOTH users,
