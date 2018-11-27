@@ -166,8 +166,7 @@ function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, se
 	};
 }
 
-function updateChatroomLastMessage(chatroom, senderUid, messageText, messageTimestamp) {
-	chatroom["lastMessageSenderUid"] = `${senderUid}`;
+function updateChatroomLastMessage(chatroom, messageText, messageTimestamp) {
 	chatroom["lastMessageText"] = `${messageText}`;
 	chatroom["lastMessageTimestamp"] = messageTimestamp;					    		
 
@@ -223,7 +222,7 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 					// Update sender chatroom only if this message is newer, 
 					// than the last message in the chatroom.
 					if (messageTimestamp > senderChatroomCurrentLastMessageTimestamp) {
-						updatedSenderChatroom = updateChatroomLastMessage(updatedSenderChatroom, senderUid, messageText, messageTimestamp);
+						updatedSenderChatroom = updateChatroomLastMessage(updatedSenderChatroom, messageText, messageTimestamp);
 						return transaction.update(senderChatroomRef, updatedSenderChatroom);
 
 					} else {
@@ -278,7 +277,7 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 					// Last message in the receiver chatroom should be updated,
 					// only if this message is newer.
 			    	if (messageTimestamp > receiverChatroomCurrentLastMessageTimestamp) {
-						updatedReceiverChatroom = updateChatroomLastMessage(updatedReceiverChatroom, senderUid, messageText, messageTimestamp);			    		
+						updatedReceiverChatroom = updateChatroomLastMessage(updatedReceiverChatroom, messageText, messageTimestamp);			    		
 						isLastMessageUpdated = true;
 			    	}
 
