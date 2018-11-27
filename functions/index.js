@@ -26,6 +26,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
       	const messageTimestampSeconds = getSeconds(messageTimestamp);
 
         let senderName;
+        let senderUserPicUrl;
 
 		// Get sender user
 		// (in return statement, because this method must return promise)
@@ -39,6 +40,9 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 
 		        // Init sender name with username or name
 		        senderName = getUserNameOrUsername(sender.name, sender.username);
+
+		        // Get sender user pic URL
+		        senderUserPicUrl = sender.userPicUrl;
 
 		      	// Get receiver user
 		      	// (in return statement, because this method must return promise)
@@ -55,7 +59,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        const receiverToken = receiver.fcm_token;
 
 		        // Create promise to send FCM message to the device with specified FCM token.
-		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, messageText, messageTimestampSeconds, receiverToken);
+		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, senderUserPicUrl, messageText, messageTimestampSeconds, receiverToken);
 
 		        // Chatrooms are updated inside transactions
 		        // to prevent corrupting data by parallel function execution.
@@ -162,7 +166,7 @@ function updateChatroomLastMessage(chatroom, senderUid, messageText, messageTime
 	return chatroom;
 }
 
-function getSendNotificationPromise(senderUid, senderName, messageText, messageTimestampSeconds, receiverToken) {
+function getSendNotificationPromise(senderUid, senderName, senderUserPicUrl, messageText, messageTimestampSeconds, receiverToken) {
     // Create FCM message with sender uid and name and message text.
     // We must send DATA FCM message, not notification message
     // (message contains only "data" part).
@@ -174,6 +178,7 @@ function getSendNotificationPromise(senderUid, senderName, messageText, messageT
       data: {
 	    senderUid: `${senderUid}`,
 	    senderName: `${senderName}`,
+	    senderUserPicUrl: `${senderUserPicUrl}`,
         messageText: `${messageText}`,
         messageTimestamp: `${messageTimestampSeconds}`
       }
