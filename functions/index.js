@@ -55,6 +55,9 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        // Init receiver name with username or name
 		        const receiverName = getUserNameOrUsername(receiver.name, receiver.username);
 
+		        // Get receiver user pic URL
+		        const receiverUserPicUrl = receiver.userPicUrl;
+
 				// Get receiver user's FCM token		        	
 		        const receiverToken = receiver.fcm_token;
 
@@ -63,8 +66,8 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 
 		        // Chatrooms are updated inside transactions
 		        // to prevent corrupting data by parallel function execution.
-				const updateSenderChatroomPromise = getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText);
-				const updateReceiverChatroomPromise = getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText);
+				const updateSenderChatroomPromise = getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl, messageTimestamp, messageText);
+				const updateReceiverChatroomPromise = getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl, messageTimestamp, messageText);
 
 				// Send notification and update sender and receiver chatrooms
 				return Promise.all([sendNotificationPromise, updateSenderChatroomPromise, updateReceiverChatroomPromise]);
@@ -148,13 +151,15 @@ function getUserChatroomRef(userUid, chatroomUid) {
 	return admin.firestore().collection('userChatrooms').doc(userUid).collection('chatroomsOfUser').doc(chatroomUid);
 }
 
-function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName) {
+function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl) {
 	// These properties are updated anyway
 	return {
 		userUid1: `${senderUid}`,
 		userUid2: `${receiverUid}`,
 		userName1: `${senderName}`,
-		userName2: `${receiverName}`
+		userName2: `${receiverName}`,
+		userPicUrl1: `${senderUserPicUrl}`,
+		userPicUrl2: `${receiverUserPicUrl}`
 	};
 }
 
@@ -198,10 +203,10 @@ function getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid) {
 		.get()
 }
 
-function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
+function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl, messageTimestamp, messageText) {
     const chatroomUid = getChatroomUid(senderUid, receiverUid);
 	const senderChatroomRef = getUserChatroomRef(senderUid, chatroomUid);
-	let updatedSenderChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
+	let updatedSenderChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl);
 
 	return admin.firestore().runTransaction(transaction => {
 		    return transaction.get(senderChatroomRef)
@@ -233,10 +238,10 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 		});
 }
 
-function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, messageTimestamp, messageText) {
+function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl, messageTimestamp, messageText) {
     const chatroomUid = getChatroomUid(senderUid, receiverUid);
 	const receiverChatroomRef = getUserChatroomRef(receiverUid, chatroomUid);
-	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName);
+	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl);
 
 	return admin.firestore().runTransaction(transaction => {
 			let receiverChatroomCurrentLastMessageTimestamp = 0;
