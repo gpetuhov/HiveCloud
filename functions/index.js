@@ -132,6 +132,23 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
     	}
     });
 
+// -----------------------
+
+exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocument}/reviewsOfOffer/{reviewUid}')
+	// This is triggered on new review creation
+    .onCreate((snap, context) => {
+    	// Get review from the document
+    	const review = snap.data();
+
+     	const reviewText = review.text
+     	const rating = review.rating
+
+      	console.log(`New review: ${reviewText}, ${rating}`);
+
+        // TODO: implement this
+  		return null
+    });
+
 // === Functions ===
 
 function getSeconds(timestamp) {
