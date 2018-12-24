@@ -134,27 +134,30 @@ exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
 
 // -----------------------
 
+// On every new review update corresponding offer rating in provider user
+// (the user who provides this offer).
 exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocument}/reviewsOfOffer/{reviewUid}')
 	// This is triggered on new review creation
     .onCreate((snap, context) => {
     	// Get review from the document
     	const newReview = snap.data();
 
+    	// Get reviews collection document id from params
     	const offerReviewsDocument = context.params.offerReviewsDocument;
 
     	console.log(`offerReviewsDocument = ${offerReviewsDocument}`);
 
-     	const newReviewText = newReview.text;
-     	const newReviewRating = newReview.rating;
      	const providerUserUid = newReview.providerUserUid;
      	const offerUid = newReview.offerUid;
-
-      	console.log(`New review: ${newReviewText}, ${newReviewRating}`);
+     	const newReviewRating = newReview.rating;
 
       	let providerUser;
 
       	const providerUserRef = admin.firestore().collection('users').doc(providerUserUid);
 
+      	// Update provider user offer rating list in transaction
+      	// (this is needed, because several reviews on the same offer 
+      	// can be posted at the same time)
         return admin.firestore().runTransaction(transaction => {
 		    return transaction.get(providerUserRef)
 				.then(doc => {
@@ -167,6 +170,8 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 	 	   	        return getOfferReviewsPromise(offerReviewsDocument);
 		    	})
 		    	.then(snapshot => {
+		    		// Calculate new offer rating based on all reviews of this offer
+
 					let newReviewCount = 0;
 					let ratingSum = 0;
 
@@ -186,18 +191,22 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
    	              	console.log(`ratingSum = ${ratingSum}`);
    	              	console.log(`newReviewCount = ${newReviewCount}`);
 
+   	              	// Calculate averate rating
    	              	const averageRating = ratingSum / newReviewCount;
 
    	              	console.log(`averageRating = ${averageRating}`);
 
+   	              	// Get offer rating list
    	              	let offerRatings = providerUser.offerRatingList;
 
    	              	if (offerRatings === undefined) {
+   	              		// If user has no reviews yet, create new offer rating array
    	              		offerRatings = [];
    	              	}
 
    	              	console.log(`offerUid = ${offerUid}`);
 
+   	              	// Find index of current offer's rating
    	              	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
 
    	              	console.log("offerRatings = ");
@@ -207,12 +216,15 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
  					let offerRating;
 
    	              	if (index >= 0 && index < offerRatings.length) {
+   	              		// If current offer's rating exist, update it
 	   	              	offerRating = offerRatings[index];
 
 	   	              	offerRating.offer_rating = averageRating;
 	   	              	offerRating.offer_review_count = newReviewCount;
 
    	              	} else {
+   	              		// Otherwise (this is the first review on the current offer)
+   	              		// create new rating and add it to offer rating array.
 						offerRating = {
 							offer_uid: offerUid,
 							offer_rating: averageRating,
@@ -225,6 +237,7 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
    	              	console.log("offerRatings = ");
    	              	console.log(offerRatings);
 
+   	              	// Update only offer rating array in provider user
 					const updatedProviderUser = {
 						offerRatingList: offerRatings
 					};
