@@ -145,8 +145,6 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
     	// Get reviews collection document id from params
     	const offerReviewsDocument = context.params.offerReviewsDocument;
 
-    	console.log(`offerReviewsDocument = ${offerReviewsDocument}`);
-
      	const providerUserUid = newReview.providerUserUid;
      	const offerUid = newReview.offerUid;
      	const newReviewRating = newReview.rating;
@@ -163,8 +161,6 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 				.then(doc => {
 					// Get provider user
 	 	   	        providerUser = doc.data();
-
-   	              	console.log(`Provider user name = ${providerUser.username}`);
 
    	              	// Get offer reviews
 	 	   	        return getOfferReviewsPromise(offerReviewsDocument);
@@ -188,13 +184,8 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
     					});
 					}
 
-   	              	console.log(`ratingSum = ${ratingSum}`);
-   	              	console.log(`newReviewCount = ${newReviewCount}`);
-
    	              	// Calculate averate rating
    	              	const averageRating = ratingSum / newReviewCount;
-
-   	              	console.log(`averageRating = ${averageRating}`);
 
    	              	// Get offer rating list
    	              	let offerRatings = providerUser.offerRatingList;
@@ -204,14 +195,8 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
    	              		offerRatings = [];
    	              	}
 
-   	              	console.log(`offerUid = ${offerUid}`);
-
    	              	// Find index of current offer's rating
    	              	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
-
-   	              	console.log("offerRatings = ");
-   	              	console.log(offerRatings);
-   	              	console.log(`index = ${index}`);
 
  					let offerRating;
 
@@ -233,9 +218,6 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 
 						offerRatings.push(offerRating);
    	              	}
-
-   	              	console.log("offerRatings = ");
-   	              	console.log(offerRatings);
 
    	              	// Update only offer rating array in provider user
 					const updatedProviderUser = {
