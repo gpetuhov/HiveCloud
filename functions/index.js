@@ -147,6 +147,7 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
      	const newReviewText = newReview.text;
      	const newReviewRating = newReview.rating;
      	const providerUserUid = newReview.providerUserUid;
+     	const offerUid = newReview.offerUid;
 
       	console.log(`New review: ${newReviewText}, ${newReviewRating}`);
 
@@ -188,8 +189,28 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 
    	              	console.log(`averageRating = ${averageRating}`);
 
-					return null;
-					// return transaction.update(providerUserRef, providerUser);
+   	              	const offers = providerUser.offerList;
+
+   	              	console.log(`offerUid = ${offerUid}`);
+
+   	              	const offerIndex = offers.findIndex( offerItem => offerItem.offer_uid === offerUid );
+
+   	              	console.log(`offers = ${offers}`);
+   	              	console.log(`offerIndex = ${offerIndex}`);
+
+   	              	if (offerIndex >= 0 && offerIndex < offers.length) {
+	   	              	const offer = offers[offerIndex];
+
+	   	              	console.log(`Offer title = ${offer.offer_title}`);
+
+	   	              	offer.offer_rating = averageRating;
+	   	              	offer.offer_review_count = newReviewCount;
+
+						return transaction.update(providerUserRef, providerUser);
+
+   	              	} else {
+   	              		return null;
+   	              	}
 		    	})
 		})
 		.then(result => {
