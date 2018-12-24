@@ -138,15 +138,40 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 	// This is triggered on new review creation
     .onCreate((snap, context) => {
     	// Get review from the document
-    	const review = snap.data();
+    	const newReview = snap.data();
 
-     	const reviewText = review.text
-     	const rating = review.rating
+    	const offerReviewsDocument = context.params.offerReviewsDocument;
 
-      	console.log(`New review: ${reviewText}, ${rating}`);
+    	console.log(`offerReviewsDocument = ${offerReviewsDocument}`);
 
-        // TODO: implement this
-  		return null
+     	const newReviewText = newReview.text;
+     	const newReviewRating = newReview.rating;
+     	const providerUserUid = newReview.providerUserUid;
+
+      	console.log(`New review: ${newReviewText}, ${newReviewRating}`);
+
+      	const providerUserRef = admin.firestore().collection('users').doc(providerUserUid);
+
+        return admin.firestore().runTransaction(transaction => {
+		    return transaction.get(providerUserRef)
+				.then(doc => {
+					// Get provider user
+	 	   	        const providerUser = doc.data();
+
+   	              	console.log(`Provider user name = ${providerUser.username}`);
+
+
+	 	   	        return null;
+					// return transaction.update(providerUserRef, providerUser);
+		    	})
+		})
+		.then(result => {
+			return null;
+		})
+		.catch(err => {
+			console.log('Update provider user transaction failure:', err);
+			return null;
+		});
     });
 
 // === Functions ===
