@@ -190,32 +190,46 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 
    	              	console.log(`averageRating = ${averageRating}`);
 
-   	              	const offers = providerUser.offerList;
+   	              	let offerRatings = providerUser.offerRatingList;
+
+   	              	if (offerRatings === undefined) {
+   	              		offerRatings = [];
+   	              	}
 
    	              	console.log(`offerUid = ${offerUid}`);
 
-   	              	const offerIndex = offers.findIndex( offerItem => offerItem.offer_uid === offerUid );
+   	              	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
 
-   	              	console.log(`offers = ${offers}`);
-   	              	console.log(`offerIndex = ${offerIndex}`);
+   	              	console.log("offerRatings = ");
+   	              	console.log(offerRatings);
+   	              	console.log(`index = ${index}`);
 
-   	              	if (offerIndex >= 0 && offerIndex < offers.length) {
-	   	              	const offer = offers[offerIndex];
+ 					let offerRating;
 
-	   	              	console.log(`Offer title = ${offer.offer_title}`);
+   	              	if (index >= 0 && index < offerRatings.length) {
+	   	              	offerRating = offerRatings[index];
 
-	   	              	offer.offer_rating = averageRating;
-	   	              	offer.offer_review_count = newReviewCount;
-
-						const updatedProviderUser = {
-							offerList: offers
-						};
-
-						return transaction.update(providerUserRef, updatedProviderUser);
+	   	              	offerRating.offer_rating = averageRating;
+	   	              	offerRating.offer_review_count = newReviewCount;
 
    	              	} else {
-   	              		return null;
+						offerRating = {
+							offer_uid: offerUid,
+							offer_rating: averageRating,
+							offer_review_count: newReviewCount
+						};
+
+						offerRatings.push(offerRating);
    	              	}
+
+   	              	console.log("offerRatings = ");
+   	              	console.log(offerRatings);
+
+					const updatedProviderUser = {
+						offerRatingList: offerRatings
+					};
+
+					return transaction.update(providerUserRef, updatedProviderUser);
 		    	})
 		})
 		.then(result => {
