@@ -167,14 +167,15 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 	 	   	        return getOfferReviewsPromise(offerReviewsDocument);
 		    	})
 		    	.then(snapshot => {
-					let newReviewCount;
-					let ratingSum = newReviewRating;
+					let newReviewCount = 0;
+					let ratingSum = 0;
 
 					if (snapshot.empty) {
 						newReviewCount = 1;
+						ratingSum = newReviewRating;
 
 					} else {
-						newReviewCount = snapshot.size + 1;
+						newReviewCount = snapshot.size;
 
 						snapshot.forEach(doc => {
 							const reviewItem = doc.data();
