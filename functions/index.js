@@ -167,57 +167,7 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 		    	})
 		    	.then(snapshot => {
 		    		// Calculate new offer rating based on all reviews of this offer
-
-					let newReviewCount = 0;
-					let ratingSum = 0;
-
-					if (snapshot.empty) {
-						newReviewCount = 1;
-						ratingSum = newReviewRating;
-
-					} else {
-						newReviewCount = snapshot.size;
-
-						snapshot.forEach(doc => {
-							const reviewItem = doc.data();
-							ratingSum = ratingSum + reviewItem.rating;
-    					});
-					}
-
-   	              	// Calculate averate rating
-   	              	const averageRating = ratingSum / newReviewCount;
-
-   	              	// Get offer rating list
-   	              	let offerRatings = providerUser.offerRatingList;
-
-   	              	if (offerRatings === undefined) {
-   	              		// If user has no reviews yet, create new offer rating array
-   	              		offerRatings = [];
-   	              	}
-
-   	              	// Find index of current offer's rating
-   	              	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
-
- 					let offerRating;
-
-   	              	if (index >= 0 && index < offerRatings.length) {
-   	              		// If current offer's rating exist, update it
-	   	              	offerRating = offerRatings[index];
-
-	   	              	offerRating.offer_rating = averageRating;
-	   	              	offerRating.offer_review_count = newReviewCount;
-
-   	              	} else {
-   	              		// Otherwise (this is the first review on the current offer)
-   	              		// create new rating and add it to offer rating array.
-						offerRating = {
-							offer_uid: offerUid,
-							offer_rating: averageRating,
-							offer_review_count: newReviewCount
-						};
-
-						offerRatings.push(offerRating);
-   	              	}
+   	              	const offerRatings = recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerUid);
 
    	              	// Update only offer rating array in provider user
 					const updatedProviderUser = {
@@ -543,4 +493,59 @@ function getOfferReviewsPromise(offerReviewsDocument) {
     	.doc(offerReviewsDocument)
     	.collection('reviewsOfOffer')
 		.get()
+}
+
+function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerUid) {
+	let newReviewCount = 0;
+	let ratingSum = 0;
+
+	if (snapshot.empty) {
+		newReviewCount = 1;
+		ratingSum = newReviewRating;
+
+	} else {
+		newReviewCount = snapshot.size;
+
+		snapshot.forEach(doc => {
+			const reviewItem = doc.data();
+			ratingSum = ratingSum + reviewItem.rating;
+		});
+	}
+
+  	// Calculate averate rating
+  	const averageRating = ratingSum / newReviewCount;
+
+  	// Get offer rating list
+  	let offerRatings = providerUser.offerRatingList;
+
+  	if (offerRatings === undefined) {
+  		// If user has no reviews yet, create new offer rating array
+  		offerRatings = [];
+  	}
+
+  	// Find index of current offer's rating
+  	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
+
+	let offerRating;
+
+  	if (index >= 0 && index < offerRatings.length) {
+  		// If current offer's rating exist, update it
+      	offerRating = offerRatings[index];
+
+      	offerRating.offer_rating = averageRating;
+      	offerRating.offer_review_count = newReviewCount;
+
+  	} else {
+  		// Otherwise (this is the first review on the current offer)
+  		// create new rating and add it to offer rating array.
+		offerRating = {
+			offer_uid: offerUid,
+			offer_rating: averageRating,
+			offer_review_count: newReviewCount
+		};
+
+		offerRatings.push(offerRating);
+  	}
+
+  	return offerRatings;
 }
