@@ -150,18 +150,50 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 
       	console.log(`New review: ${newReviewText}, ${newReviewRating}`);
 
+      	let providerUser;
+
       	const providerUserRef = admin.firestore().collection('users').doc(providerUserUid);
 
         return admin.firestore().runTransaction(transaction => {
 		    return transaction.get(providerUserRef)
 				.then(doc => {
 					// Get provider user
-	 	   	        const providerUser = doc.data();
+	 	   	        providerUser = doc.data();
 
    	              	console.log(`Provider user name = ${providerUser.username}`);
 
+   	              	// Get offer reviews
+	 	   	        return getOfferReviewsPromise(offerReviewsDocument);
+		    	})
+		    	.then(snapshot => {
+					// Count current and new number of reviews
+					const currentReviewCount = snapshot.empty ? 0 : snapshot.size;
+					const newReviewCount = currentReviewCount + 1;
 
-	 	   	        return null;
+   	              	console.log(`currentReviewCount = ${currentReviewCount}`);
+   	              	console.log(`newReviewCount = ${newReviewCount}`);
+
+					let averageRating;
+
+					if (snapshot.empty) {
+						averageRating = newReviewRating;
+
+					} else {
+						let ratingSum = newReviewRating;
+
+						snapshot.forEach(doc => {
+							const reviewItem = doc.data();
+							ratingSum = ratingSum + reviewItem.rating;
+    					});
+
+	   	              	console.log(`ratingSum = ${ratingSum}`);
+
+	   	              	averageRating = ratingSum / newReviewCount;
+					}
+
+   	              	console.log(`averageRating = ${averageRating}`);
+
+					return null;
 					// return transaction.update(providerUserRef, providerUser);
 		    	})
 		})
@@ -473,4 +505,12 @@ function getUpdateChatroomForUserPromise(chatroomUid, userUid, updatedChatroom) 
 			console.log('Update username in chatroom transaction failure:', err);
 			return null;
 		});
+}
+
+function getOfferReviewsPromise(offerReviewsDocument) {
+    return admin.firestore()
+    	.collection('reviews')
+    	.doc(offerReviewsDocument)
+    	.collection('reviewsOfOffer')
+		.get()
 }
