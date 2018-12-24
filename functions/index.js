@@ -166,30 +166,25 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 	 	   	        return getOfferReviewsPromise(offerReviewsDocument);
 		    	})
 		    	.then(snapshot => {
-					// Count current and new number of reviews
-					const currentReviewCount = snapshot.empty ? 0 : snapshot.size;
-					const newReviewCount = currentReviewCount + 1;
-
-   	              	console.log(`currentReviewCount = ${currentReviewCount}`);
-   	              	console.log(`newReviewCount = ${newReviewCount}`);
-
-					let averageRating;
+					let newReviewCount;
+					let ratingSum = newReviewRating;
 
 					if (snapshot.empty) {
-						averageRating = newReviewRating;
+						newReviewCount = 1;
 
 					} else {
-						let ratingSum = newReviewRating;
+						newReviewCount = snapshot.size + 1;
 
 						snapshot.forEach(doc => {
 							const reviewItem = doc.data();
 							ratingSum = ratingSum + reviewItem.rating;
     					});
-
-	   	              	console.log(`ratingSum = ${ratingSum}`);
-
-	   	              	averageRating = ratingSum / newReviewCount;
 					}
+
+   	              	console.log(`ratingSum = ${ratingSum}`);
+   	              	console.log(`newReviewCount = ${newReviewCount}`);
+
+   	              	const averageRating = ratingSum / newReviewCount;
 
    	              	console.log(`averageRating = ${averageRating}`);
 
