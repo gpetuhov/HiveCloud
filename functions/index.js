@@ -207,7 +207,11 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 	   	              	offer.offer_rating = averageRating;
 	   	              	offer.offer_review_count = newReviewCount;
 
-						return transaction.update(providerUserRef, providerUser);
+						const updatedProviderUser = {
+							offerList: offers
+						};
+
+						return transaction.update(providerUserRef, updatedProviderUser);
 
    	              	} else {
    	              		return null;
