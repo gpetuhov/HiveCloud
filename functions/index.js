@@ -532,11 +532,6 @@ function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerU
 
 	let offerRating;
 
-	console.log(`newReviewAuthorName = ${newReviewAuthorName}`);
-	console.log(`newReviewAuthorUserPicUrl = ${newReviewAuthorUserPicUrl}`);
-	console.log(`newReviewText = ${newReviewText}`);
-	console.log(`newReviewTimestamp = ${newReviewTimestamp}`);
-
   	if (index >= 0 && index < offerRatings.length) {
   		// If current offer's rating exist, update it
       	offerRating = offerRatings[index];
@@ -546,13 +541,9 @@ function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerU
 
       	const currentLastReviewTimestamp = offerRating.offer_last_review_timestamp;
 
-		console.log(`currentLastReviewTimestamp = ${currentLastReviewTimestamp}`);
-
       	// If this review is the first or latest, 
       	// then replace previous review in offer rating with this one.
 		if (currentLastReviewTimestamp === undefined || newReviewTimestamp > currentLastReviewTimestamp) {
-			console.log(`Replace last review`);
-
 			offerRating.offer_last_review_author_name = newReviewAuthorName;
 			offerRating.offer_last_review_author_pic = newReviewAuthorUserPicUrl;
 			offerRating.offer_last_review_text = newReviewText;
@@ -560,8 +551,6 @@ function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerU
 		}
 
   	} else {
-		console.log(`This review is the first one`);
-
   		// Otherwise (this is the first review on the current offer)
   		// create new rating and add it to offer rating array.
 		offerRating = {
