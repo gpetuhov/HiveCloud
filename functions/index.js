@@ -106,27 +106,52 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 
 // -----------------------
 
-// If user's username has been updated,
+// If user's username or userpic has been updated,
 // update it in all chatrooms, this user participates in.
-exports.onUpdateUser = functions.firestore.document('/users/{userUid}')
-	// This is triggered on document update
-    .onUpdate((change, context) => {
-    	const oldUser = change.before.data();
-    	const newUser = change.after.data();
+exports.onUpdateUserNameAndPic = functions.firestore.document('/userNameAndPic/{userUid}')
+	// This is triggered on every document change (create, update, delete)
+    .onWrite((change, context) => {
+    	const oldData = change.before.exists ? change.before.data() : null;
+    	const newData = change.after.data();
     	const userUid = context.params.userUid;
 
-    	// If username is not defined, then use user name
-    	const oldUsername = getUserNameOrUsername(oldUser.name, oldUser.username);
-    	const newUsername = getUserNameOrUsername(newUser.name, newUser.username);
+    	console.log(`oldData = ${oldData}`);
+    	console.log(`newData = ${newData}`);
 
-    	const oldUserPicUrl = oldUser.userPicUrl;
-    	const newUserPicUrl = newUser.userPicUrl;
+    	// Name used in chatrooms (name or username)
+    	let oldUsername;
+    	let newUsername;
+
+    	let oldUserPicUrl;
+    	let newUserPicUrl;
+
+    	if (oldData === null) {
+    		// If this is the first time user sets username or userpic,
+    		// than old username (that was used in chatrooms) is the user's name.
+    		oldUsername = newData.name; // name never changes
+    		oldUserPicUrl = "";
+
+			console.log(`oldData is null`);
+
+    	} else {
+    		oldUsername = getUserNameOrUsername(oldData.name, oldData.username);
+    		oldUserPicUrl = oldData.userPicUrl;
+
+			console.log(`oldData exists`);
+    	}
+
+    	newUsername = getUserNameOrUsername(newData.name, newData.username);
+    	newUserPicUrl = newData.userPicUrl;
 
     	if (oldUsername === newUsername && oldUserPicUrl === newUserPicUrl) {
+			console.log(`Nothing changed, do nothing`);
+
     		// Username and user pic not changed, do nothing
 	    	return null;
 
     	} else {
+			console.log(`Update chatrooms`);
+
     		// Username or user pic changed, update it in the chatrooms of the user
     		return getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername, oldUserPicUrl, newUserPicUrl);
     	}
