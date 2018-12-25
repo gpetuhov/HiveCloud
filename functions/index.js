@@ -115,9 +115,6 @@ exports.onUpdateUserNameAndPic = functions.firestore.document('/userNameAndPic/{
     	const newData = change.after.data();
     	const userUid = context.params.userUid;
 
-    	console.log(`oldData = ${oldData}`);
-    	console.log(`newData = ${newData}`);
-
     	// Name used in chatrooms (name or username)
 		const oldUsername = getUserNameOrUsername(oldData.name, oldData.username);
     	const newUsername = getUserNameOrUsername(newData.name, newData.username);
@@ -126,14 +123,10 @@ exports.onUpdateUserNameAndPic = functions.firestore.document('/userNameAndPic/{
     	const newUserPicUrl = newData.userPicUrl;
 
     	if (oldUsername === newUsername && oldUserPicUrl === newUserPicUrl) {
-			console.log(`Nothing changed, do nothing`);
-
     		// Username and user pic not changed, do nothing
 	    	return null;
 
     	} else {
-			console.log(`Update chatrooms`);
-
     		// Username or user pic changed, update it in the chatrooms of the user
     		return getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername, oldUserPicUrl, newUserPicUrl);
     	}
