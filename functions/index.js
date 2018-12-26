@@ -283,7 +283,7 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 					if (senderChatroom === undefined) {
 						// Chatroom does not exist yet.
 						// Create it instead of updating.
-						return senderChatroomRef.set(updatedSenderChatroom, { merge: true });
+						return transaction.set(senderChatroomRef, updatedSenderChatroom);
 
 					} else {
 						// Get current last message timestamp
@@ -355,7 +355,7 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 			    	if (receiverChatroom === undefined) {
 						// Chatroom does not exist yet.
 						// Create it instead of updating.
-						return receiverChatroomRef.set(updatedReceiverChatroom, { merge: true });
+			    		return transaction.set(receiverChatroomRef, updatedReceiverChatroom);
 
 			    	} else {
 				    	if (isCountUpdated || isLastMessageUpdated) {
