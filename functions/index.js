@@ -31,8 +31,6 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
       	const messageTimestamp = message.timestamp;
       	const messageTimestampMillis = messageTimestamp.toMillis();
 
-      	console.log(`messageTimestampMillis = ${messageTimestampMillis}`);
-
         let senderName;
         let senderUserPicUrl;
 
