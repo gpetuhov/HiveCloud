@@ -5,6 +5,8 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 const firestore = admin.firestore();
+
+// This is needed to remove timestamp warning
 const settings = {timestampsInSnapshots: true};
 firestore.settings(settings);
 
@@ -276,18 +278,26 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 					// Get sender chatroom
 					const senderChatroom = doc.data();
 
-					// Get current last message timestamp
-					const senderChatroomCurrentLastMessageTimestamp = senderChatroom.lastMessageTimestamp;
+					updatedSenderChatroom = updateChatroomLastMessage(updatedSenderChatroom, messageText, messageTimestamp);
 
-					// Update sender chatroom only if this message is newer, 
-					// than the last message in the chatroom.
-					if (senderChatroomCurrentLastMessageTimestamp === undefined || messageTimestamp.toMillis() > senderChatroomCurrentLastMessageTimestamp.toMillis()) {
-						updatedSenderChatroom = updateChatroomLastMessage(updatedSenderChatroom, messageText, messageTimestamp);
-						return transaction.update(senderChatroomRef, updatedSenderChatroom);
+					if (senderChatroom === undefined) {
+						// Chatroom does not exist yet.
+						// Create it instead of updating.
+						return senderChatroomRef.set(updatedSenderChatroom, { merge: true });
 
 					} else {
-						// Message is older than sender chatroom last message, do not update
-						return null;
+						// Get current last message timestamp
+						const senderChatroomCurrentLastMessageTimestamp = senderChatroom.lastMessageTimestamp;
+
+						// Update sender chatroom only if this message is newer, 
+						// than the last message in the chatroom.
+						if (senderChatroomCurrentLastMessageTimestamp === undefined || messageTimestamp.toMillis() > senderChatroomCurrentLastMessageTimestamp.toMillis()) {
+							return transaction.update(senderChatroomRef, updatedSenderChatroom);
+
+						} else {
+							// Message is older than sender chatroom last message, do not update
+							return null;
+						}
 					}
 		    	})
 		})
@@ -306,17 +316,18 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl);
 
 	return firestore.runTransaction(transaction => {
+			let receiverChatroom;
 			let receiverChatroomCurrentLastMessageTimestamp = 0;
 			let receiverChatroomCurrentNewMessageCount;
 
 	    	return transaction.get(receiverChatroomRef)
 	    		.then(doc => {
 					// Get receiver chatroom
-					const receiverChatroom = doc.data();
+					receiverChatroom = doc.data();
 
 					// Get current last message timestamp and new message count
-					receiverChatroomCurrentLastMessageTimestamp = receiverChatroom.lastMessageTimestamp;
-					receiverChatroomCurrentNewMessageCount = receiverChatroom.newMessageCount;
+					receiverChatroomCurrentLastMessageTimestamp = receiverChatroom !== undefined ? receiverChatroom.lastMessageTimestamp : undefined;
+					receiverChatroomCurrentNewMessageCount = receiverChatroom !== undefined ? receiverChatroom.newMessageCount : 0;
 
 			        // Get receiver's unread chatroom messages
 			        return getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid);
@@ -341,14 +352,21 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 						isLastMessageUpdated = true;
 			    	}
 
-			    	if (isCountUpdated || isLastMessageUpdated) {
-			    		// If new message count or last message should be updated, 
-			    		// then update receiver chatroom.
-			    		return transaction.update(receiverChatroomRef, updatedReceiverChatroom);
+			    	if (receiverChatroom === undefined) {
+						// Chatroom does not exist yet.
+						// Create it instead of updating.
+						return receiverChatroomRef.set(updatedReceiverChatroom, { merge: true });
 
 			    	} else {
-			    		// If nothing should be updated, do nothing.
-			    		return null;
+				    	if (isCountUpdated || isLastMessageUpdated) {
+				    		// If new message count or last message should be updated, 
+				    		// then update receiver chatroom.
+				    		return transaction.update(receiverChatroomRef, updatedReceiverChatroom);
+
+				    	} else {
+				    		// If nothing should be updated, do nothing.
+				    		return null;
+				    	}
 			    	}
 		    	})
 		})
