@@ -216,15 +216,12 @@ function getUserChatroomRef(userUid, chatroomUid) {
 	return firestore.collection('userChatrooms').doc(userUid).collection('chatroomsOfUser').doc(chatroomUid);
 }
 
-function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl) {
+function getUpdatedChatroom(secondUserUid, secondUserName, secondUserPicUrl) {
 	// These properties are updated anyway
 	return {
-		userUid1: `${senderUid}`,
-		userUid2: `${receiverUid}`,
-		userName1: `${senderName}`,
-		userName2: `${receiverName}`,
-		userPicUrl1: `${senderUserPicUrl}`,
-		userPicUrl2: `${receiverUserPicUrl}`
+		secondUserUid: `${secondUserUid}`,
+		secondUserName: `${secondUserName}`,
+		secondUserPicUrl: `${secondUserPicUrl}`
 	};
 }
 
@@ -270,7 +267,7 @@ function getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid) {
 function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl, messageTimestamp, messageText) {
     const chatroomUid = getChatroomUid(senderUid, receiverUid);
 	const senderChatroomRef = getUserChatroomRef(senderUid, chatroomUid);
-	let updatedSenderChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl);
+	let updatedSenderChatroom = getUpdatedChatroom(receiverUid, receiverName, receiverUserPicUrl);
 
 	return firestore.runTransaction(transaction => {
 		    return transaction.get(senderChatroomRef)
@@ -313,7 +310,7 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl, messageTimestamp, messageText) {
     const chatroomUid = getChatroomUid(senderUid, receiverUid);
 	const receiverChatroomRef = getUserChatroomRef(receiverUid, chatroomUid);
-	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl);
+	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, senderName, senderUserPicUrl);
 
 	return firestore.runTransaction(transaction => {
 			let receiverChatroom;
