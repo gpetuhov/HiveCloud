@@ -4,6 +4,10 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
+const firestore = admin.firestore();
+const settings = {timestampsInSnapshots: true};
+firestore.settings(settings);
+
 // === Exports ===
 
 // Listen for new chat messages added to /chatrooms/:chatroomId/messages/:messageId ,
@@ -23,14 +27,16 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
      	const receiverUid = message.receiver_uid;
       	const messageText = message.message_text;
       	const messageTimestamp = message.timestamp;
-      	const messageTimestampSeconds = getSeconds(messageTimestamp);
+      	const messageTimestampMillis = messageTimestamp.toMillis();
+
+      	console.log(`messageTimestampMillis = ${messageTimestampMillis}`);
 
         let senderName;
         let senderUserPicUrl;
 
 		// Get sender user
 		// (in return statement, because this method must return promise)
-  		return admin.firestore()
+  		return firestore
             .collection('users')
             .doc(senderUid)
             .get()
@@ -46,7 +52,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 
 		      	// Get receiver user
 		      	// (in return statement, because this method must return promise)
-		  		return admin.firestore().collection('users').doc(receiverUid).get();
+		  		return firestore.collection('users').doc(receiverUid).get();
 		    })
             .then(doc => {
             	// Get receiver user from the document
@@ -62,7 +68,7 @@ exports.onNewChatMessage = functions.firestore.document('/chatrooms/{chatroomUid
 		        const receiverToken = receiver.fcm_token;
 
 		        // Create promise to send FCM message to the device with specified FCM token.
-		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, senderUserPicUrl, messageText, messageTimestampSeconds, receiverToken);
+		        const sendNotificationPromise = getSendNotificationPromise(senderUid, senderName, senderUserPicUrl, messageText, messageTimestampMillis, receiverToken);
 
 		        // Chatrooms are updated inside transactions
 		        // to prevent corrupting data by parallel function execution.
@@ -155,12 +161,12 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 
       	let providerUser;
 
-      	const providerUserRef = admin.firestore().collection('users').doc(providerUserUid);
+      	const providerUserRef = firestore.collection('users').doc(providerUserUid);
 
       	// Update provider user offer rating list in transaction
       	// (this is needed, because several reviews on the same offer 
       	// can be posted at the same time)
-        return admin.firestore().runTransaction(transaction => {
+        return firestore.runTransaction(transaction => {
 		    return transaction.get(providerUserRef)
 				.then(doc => {
 					// Get provider user
@@ -192,10 +198,6 @@ exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocume
 
 // === Functions ===
 
-function getSeconds(timestamp) {
-	return Date.parse(timestamp) / 1000;
-}
-
 function getUserNameOrUsername(name, userName) {
     return (userName !== undefined && userName !== "") ? userName : name;
 }
@@ -209,7 +211,7 @@ function getNewMessageCount(tempNewMessageCount) {
 }
 
 function getUserChatroomRef(userUid, chatroomUid) {
-	return admin.firestore().collection('userChatrooms').doc(userUid).collection('chatroomsOfUser').doc(chatroomUid);
+	return firestore.collection('userChatrooms').doc(userUid).collection('chatroomsOfUser').doc(chatroomUid);
 }
 
 function getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl) {
@@ -231,7 +233,7 @@ function updateChatroomLastMessage(chatroom, messageText, messageTimestamp) {
 	return chatroom;
 }
 
-function getSendNotificationPromise(senderUid, senderName, senderUserPicUrl, messageText, messageTimestampSeconds, receiverToken) {
+function getSendNotificationPromise(senderUid, senderName, senderUserPicUrl, messageText, messageTimestampMillis, receiverToken) {
     // Create FCM message with sender uid and name and message text.
     // We must send DATA FCM message, not notification message
     // (message contains only "data" part).
@@ -245,7 +247,7 @@ function getSendNotificationPromise(senderUid, senderName, senderUserPicUrl, mes
 	    senderName: `${senderName}`,
 	    senderUserPicUrl: `${senderUserPicUrl}`,
         messageText: `${messageText}`,
-        messageTimestamp: `${messageTimestampSeconds}`
+        messageTimestamp: `${messageTimestampMillis}`
       }
     };
 
@@ -254,7 +256,7 @@ function getSendNotificationPromise(senderUid, senderName, senderUserPicUrl, mes
 }
 
 function getReceiverChatroomUnreadMessagesPromise(chatroomUid, receiverUid) {
-    return admin.firestore()
+    return firestore
     	.collection('chatrooms')
     	.doc(chatroomUid)
     	.collection('messages')
@@ -268,7 +270,7 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 	const senderChatroomRef = getUserChatroomRef(senderUid, chatroomUid);
 	let updatedSenderChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl);
 
-	return admin.firestore().runTransaction(transaction => {
+	return firestore.runTransaction(transaction => {
 		    return transaction.get(senderChatroomRef)
 				.then(doc => {
 					// Get sender chatroom
@@ -279,7 +281,7 @@ function getUpdateSenderChatroomOnCreatePromise(senderUid, receiverUid, senderNa
 
 					// Update sender chatroom only if this message is newer, 
 					// than the last message in the chatroom.
-					if (messageTimestamp > senderChatroomCurrentLastMessageTimestamp) {
+					if (senderChatroomCurrentLastMessageTimestamp === undefined || messageTimestamp.toMillis() > senderChatroomCurrentLastMessageTimestamp.toMillis()) {
 						updatedSenderChatroom = updateChatroomLastMessage(updatedSenderChatroom, messageText, messageTimestamp);
 						return transaction.update(senderChatroomRef, updatedSenderChatroom);
 
@@ -303,7 +305,7 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 	const receiverChatroomRef = getUserChatroomRef(receiverUid, chatroomUid);
 	let updatedReceiverChatroom = getUpdatedChatroom(senderUid, receiverUid, senderName, receiverName, senderUserPicUrl, receiverUserPicUrl);
 
-	return admin.firestore().runTransaction(transaction => {
+	return firestore.runTransaction(transaction => {
 			let receiverChatroomCurrentLastMessageTimestamp = 0;
 			let receiverChatroomCurrentNewMessageCount;
 
@@ -334,7 +336,7 @@ function getUpdateReceiverChatroomOnCreatePromise(senderUid, receiverUid, sender
 
 					// Last message in the receiver chatroom should be updated,
 					// only if this message is newer.
-			    	if (messageTimestamp > receiverChatroomCurrentLastMessageTimestamp) {
+			    	if (receiverChatroomCurrentLastMessageTimestamp === undefined || messageTimestamp.toMillis() > receiverChatroomCurrentLastMessageTimestamp.toMillis()) {
 						updatedReceiverChatroom = updateChatroomLastMessage(updatedReceiverChatroom, messageText, messageTimestamp);			    		
 						isLastMessageUpdated = true;
 			    	}
@@ -368,7 +370,7 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
     // Transaction will restart from the beginning, if the data
     // (the receiver's chatroom new message counter)
     // is modified by another function instance execution.
-	return admin.firestore().runTransaction(transaction => {
+	return firestore.runTransaction(transaction => {
 			let currentReceiverNewMessageCount;
 
 		    return transaction.get(receiverChatroomRef)
@@ -420,7 +422,7 @@ function getUpdateReceiverChatroomOnUpdatePromise(senderUid, receiverUid) {
 
 function getUserChatroomsAndUpdateUsername(userUid, oldUsername, newUsername, oldUserPicUrl, newUserPicUrl) {
 	// Get user's chatrooms and update username inside them
-	return admin.firestore()
+	return firestore
 		.collection('userChatrooms')
 		.doc(userUid)
 		.collection('chatroomsOfUser')
@@ -476,7 +478,7 @@ function getUpdateUsernameInChatroomsPromise(snapshot, oldUsername, newUsername,
 function getUpdateChatroomForUserPromise(chatroomUid, userUid, updatedChatroom) {
     const chatroomRef = getUserChatroomRef(userUid, chatroomUid);
 
-	return admin.firestore().runTransaction(transaction => {
+	return firestore.runTransaction(transaction => {
 		    return transaction.get(chatroomRef)
 				.then(doc => {
 					return transaction.update(chatroomRef, updatedChatroom);
@@ -492,7 +494,7 @@ function getUpdateChatroomForUserPromise(chatroomUid, userUid, updatedChatroom) 
 }
 
 function getOfferReviewsPromise(offerReviewsDocument) {
-    return admin.firestore()
+    return firestore
     	.collection('reviews')
     	.doc(offerReviewsDocument)
     	.collection('reviewsOfOffer')
@@ -543,7 +545,7 @@ function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerU
 
       	// If this review is the first or latest, 
       	// then replace previous review in offer rating with this one.
-		if (currentLastReviewTimestamp === undefined || newReviewTimestamp > currentLastReviewTimestamp) {
+		if (currentLastReviewTimestamp === undefined || newReviewTimestamp.toMillis() > currentLastReviewTimestamp.toMillis()) {
 			offerRating.offer_last_review_author_name = newReviewAuthorName;
 			offerRating.offer_last_review_author_pic = newReviewAuthorUserPicUrl;
 			offerRating.offer_last_review_text = newReviewText;
