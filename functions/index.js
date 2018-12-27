@@ -140,13 +140,13 @@ exports.onUpdateUserNameAndPic = functions.firestore.document('/userNameAndPic/{
 
 // -----------------------
 
-// On every new review update corresponding offer rating in provider user
+// On every review change update corresponding offer rating in provider user
 // (the user who provides this offer).
-exports.onNewReview = functions.firestore.document('/reviews/{offerReviewsDocument}/reviewsOfOffer/{reviewUid}')
-	// This is triggered on new review creation
-    .onCreate((snap, context) => {
+exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocument}/reviewsOfOffer/{reviewUid}')
+	// This is triggered on review create, update and delete
+    .onWrite((change, context) => {
     	// Get review from the document
-    	const newReview = snap.data();
+    	const newReview = change.after.data();
 
     	// Get reviews collection document id from params
     	const offerReviewsDocument = context.params.offerReviewsDocument;
@@ -500,16 +500,19 @@ function getOfferReviewsPromise(offerReviewsDocument) {
     	.collection('reviews')
     	.doc(offerReviewsDocument)
     	.collection('reviewsOfOffer')
+    	.orderBy('timestamp', 'desc')
 		.get()
 }
 
 function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerUid, newReviewAuthorName, newReviewAuthorUserPicUrl, newReviewText, newReviewTimestamp) {
 	let newReviewCount = 0;
 	let ratingSum = 0;
+	let averageRating = 0;
 
 	if (snapshot.empty) {
-		newReviewCount = 1;
-		ratingSum = newReviewRating;
+		newReviewCount = 0;
+		ratingSum = 0;
+		averageRating = 0;
 
 	} else {
 		newReviewCount = snapshot.size;
@@ -518,10 +521,9 @@ function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerU
 			const reviewItem = doc.data();
 			ratingSum = ratingSum + reviewItem.rating;
 		});
-	}
 
-  	// Calculate averate rating
-  	const averageRating = ratingSum / newReviewCount;
+		averageRating = ratingSum / newReviewCount;
+	}
 
   	// Get offer rating list
   	let offerRatings = providerUser.offerRatingList;
