@@ -156,10 +156,41 @@ exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocu
     		changedReview = change.before.data();
     	}
 
-    	if (changedReview === undefined) {
+    	let isReviewChanged = false;
+
+    	if (change.after.exists && !change.before.exists) {
+    		// Review created
+    		isReviewChanged = true;
+
+    		console.log(`Review created`);
+
+    	} else if (!change.after.exists && change.before.exists) {
+    		// Review deleted
+    		isReviewChanged = true;
+
+    		console.log(`Review deleted`);
+
+    	} else if (change.after.exists && change.before.exists) {
+    		const reviewBefore = change.before.data();
+    		const reviewAfter = change.after.data();
+
+    		console.log(`Review updated`);
+
+    		if (reviewBefore.text !== reviewAfter.text || reviewBefore.rating !== reviewAfter.rating) {
+    			// Consider review changed, only if changed review text or rating
+    			isReviewChanged = true;
+    		}
+    	}
+
+    	if (!isReviewChanged || changedReview === undefined) {
+    		console.log(`Review not changed or error`);
+
+    		// If review has not changed or is undefined, do nothing
     		return null;
 
     	} else {
+    		console.log(`Review changed`);
+
 	    	// Get reviews collection document id from params
 	    	const offerReviewsDocument = context.params.offerReviewsDocument;
 
