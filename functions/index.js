@@ -558,15 +558,24 @@ function recalculateOfferRatings(snapshot, providerUser, offerUid) {
 		// Otherwise update current offer's rating.
 		newReviewCount = snapshot.size;
 
+		let latestReview;
+		let i = 0;
+
 		snapshot.forEach(doc => {
 			const reviewItem = doc.data();
+
+			if (i === 0) {
+				latestReview = reviewItem;
+			}
+
 			ratingSum = ratingSum + reviewItem.rating;
+
+			i++;
 		});
 
 		averageRating = ratingSum / newReviewCount;
 
 		let offerRating;
-      	const latestReview = snapshot[0].data();
 
 	  	if (index >= 0 && index < offerRatings.length) {
 	  		console.log(`Current offer's rating exist, update`);
