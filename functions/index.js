@@ -146,54 +146,73 @@ exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocu
 	// This is triggered on review create, update and delete
     .onWrite((change, context) => {
     	// Get review from the document
-    	const newReview = change.after.data();
+    	let changedReview = undefined;
 
-    	// Get reviews collection document id from params
-    	const offerReviewsDocument = context.params.offerReviewsDocument;
+    	if (change.after.exists) {
+    		// Review has been created or updated
+    		changedReview = change.after.data();
 
-     	const providerUserUid = newReview.providerUserUid;
-     	const offerUid = newReview.offerUid;
-     	const newReviewRating = newReview.rating;
-     	const newReviewAuthorName = newReview.authorName;
-     	const newReviewAuthorUserPicUrl = newReview.authorUserPicUrl;
-     	const newReviewText = newReview.text;
-     	const newReviewTimestamp = newReview.timestamp;
+    		console.log(`change.after.exists = true (review created or updated)`);
 
-      	let providerUser;
+    	} else if (change.before.exists) {
+    		// Review has been deleted
+    		changedReview = change.before.data();
 
-      	const providerUserRef = firestore.collection('users').doc(providerUserUid);
+    		console.log(`change.after.exists = false, change.before.exists = true (review deleted)`);
+    	}
 
-      	// Update provider user offer rating list in transaction
-      	// (this is needed, because several reviews on the same offer 
-      	// can be posted at the same time)
-        return firestore.runTransaction(transaction => {
-		    return transaction.get(providerUserRef)
-				.then(doc => {
-					// Get provider user
-	 	   	        providerUser = doc.data();
+		console.log(`changedReview = ${changedReview}`);
 
-   	              	// Get offer reviews
-	 	   	        return getOfferReviewsPromise(offerReviewsDocument);
-		    	})
-		    	.then(snapshot => {
-		    		// Calculate new offer rating based on all reviews of this offer
-   	              	const offerRatings = recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerUid, newReviewAuthorName, newReviewAuthorUserPicUrl, newReviewText, newReviewTimestamp);
+    	if (changedReview === undefined) {
+			console.log(`changedReview = null. Error, quit`);
 
-   	              	// Update only offer rating array in provider user
-					const updatedProviderUser = {
-						offerRatingList: offerRatings
-					};
+    		return null;
 
-					return transaction.update(providerUserRef, updatedProviderUser);
-		    	})
-		})
-		.then(result => {
-			return null;
-		})
-		.catch(err => {
-			console.log('Update provider user transaction failure:', err);
-			return null;
-		});
+    	} else {
+			console.log(`changedReview !== null. Proceed`);
+
+	    	// Get reviews collection document id from params
+	    	const offerReviewsDocument = context.params.offerReviewsDocument;
+
+	     	const providerUserUid = changedReview.providerUserUid;
+	     	const offerUid = changedReview.offerUid;
+
+	      	let providerUser;
+
+	      	const providerUserRef = firestore.collection('users').doc(providerUserUid);
+
+	      	// Update provider user offer rating list in transaction
+	      	// (this is needed, because several reviews on the same offer 
+	      	// can be posted at the same time)
+	        return firestore.runTransaction(transaction => {
+			    return transaction.get(providerUserRef)
+					.then(doc => {
+						// Get provider user
+		 	   	        providerUser = doc.data();
+
+	   	              	// Get offer reviews
+		 	   	        return getOfferReviewsPromise(offerReviewsDocument);
+			    	})
+			    	.then(snapshot => {
+			    		// Calculate new offer rating based on all reviews of this offer
+	   	              	const offerRatings = recalculateOfferRatings(snapshot, providerUser, offerUid);
+
+	   	              	// Update only offer rating array in provider user
+						const updatedProviderUser = {
+							offerRatingList: offerRatings
+						};
+
+						return transaction.update(providerUserRef, updatedProviderUser);
+			    	})
+			})
+			.then(result => {
+				return null;
+			})
+			.catch(err => {
+				console.log('Update provider user transaction failure:', err);
+				return null;
+			});
+    	}
     });
 
 // === Functions ===
@@ -504,17 +523,39 @@ function getOfferReviewsPromise(offerReviewsDocument) {
 		.get()
 }
 
-function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerUid, newReviewAuthorName, newReviewAuthorUserPicUrl, newReviewText, newReviewTimestamp) {
+function recalculateOfferRatings(snapshot, providerUser, offerUid) {
 	let newReviewCount = 0;
 	let ratingSum = 0;
 	let averageRating = 0;
 
+  	// Get offer rating list
+  	let offerRatings = providerUser.offerRatingList;
+
+  	if (offerRatings === undefined) {
+  		console.log(`User has no reviews yet`);
+
+  		// If user has no reviews yet, create new offer rating array
+  		offerRatings = [];
+  	}
+
+  	// Find index of current offer's rating
+  	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
+
 	if (snapshot.empty) {
-		newReviewCount = 0;
-		ratingSum = 0;
-		averageRating = 0;
+  		console.log(`Offer has no reviews (all reviews have been deleted)`);
+
+		// If no reviews left (all reviews have been deleted),
+		// remove current offer's rating (if exists).
+	  	if (index >= 0 && index < offerRatings.length) {
+	  		console.log(`Remove offer's rating`);
+
+   			offerRatings.splice(index, 1);
+	  	}
 
 	} else {
+  		console.log(`Offer has reviews`);
+
+		// Otherwise update current offer's rating.
 		newReviewCount = snapshot.size;
 
 		snapshot.forEach(doc => {
@@ -523,54 +564,41 @@ function recalculateOfferRatings(snapshot, newReviewRating, providerUser, offerU
 		});
 
 		averageRating = ratingSum / newReviewCount;
+
+		let offerRating;
+      	const latestReview = snapshot[0].data();
+
+	  	if (index >= 0 && index < offerRatings.length) {
+	  		console.log(`Current offer's rating exist, update`);
+
+	   		// Current offer's rating exist
+	      	offerRating = offerRatings[index];
+
+	      	offerRating.offer_rating = averageRating;
+	      	offerRating.offer_review_count = newReviewCount;
+			offerRating.offer_last_review_author_name = latestReview.authorName;
+			offerRating.offer_last_review_author_pic = latestReview.authorUserPicUrl;
+			offerRating.offer_last_review_text = latestReview.text;
+			offerRating.offer_last_review_timestamp = latestReview.timestamp;
+
+	  	} else {
+	  		console.log(`Current offer's rating not exist, create`);
+
+	  		// Otherwise (this is the first review on the current offer)
+	  		// create new rating and add it to offer rating array.
+			offerRating = {
+				offer_uid: offerUid,
+				offer_rating: averageRating,
+				offer_review_count: newReviewCount,
+				offer_last_review_author_name: latestReview.authorName,
+				offer_last_review_author_pic: latestReview.authorUserPicUrl,
+				offer_last_review_text: latestReview.text,
+				offer_last_review_timestamp: latestReview.timestamp
+			};
+
+			offerRatings.push(offerRating);
+	  	}
 	}
-
-  	// Get offer rating list
-  	let offerRatings = providerUser.offerRatingList;
-
-  	if (offerRatings === undefined) {
-  		// If user has no reviews yet, create new offer rating array
-  		offerRatings = [];
-  	}
-
-  	// Find index of current offer's rating
-  	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
-
-	let offerRating;
-
-  	if (index >= 0 && index < offerRatings.length) {
-  		// If current offer's rating exist, update it
-      	offerRating = offerRatings[index];
-
-      	offerRating.offer_rating = averageRating;
-      	offerRating.offer_review_count = newReviewCount;
-
-      	const currentLastReviewTimestamp = offerRating.offer_last_review_timestamp;
-
-      	// If this review is the first or latest, 
-      	// then replace previous review in offer rating with this one.
-		if (currentLastReviewTimestamp === undefined || newReviewTimestamp.toMillis() > currentLastReviewTimestamp.toMillis()) {
-			offerRating.offer_last_review_author_name = newReviewAuthorName;
-			offerRating.offer_last_review_author_pic = newReviewAuthorUserPicUrl;
-			offerRating.offer_last_review_text = newReviewText;
-			offerRating.offer_last_review_timestamp = newReviewTimestamp;
-		}
-
-  	} else {
-  		// Otherwise (this is the first review on the current offer)
-  		// create new rating and add it to offer rating array.
-		offerRating = {
-			offer_uid: offerUid,
-			offer_rating: averageRating,
-			offer_review_count: newReviewCount,
-			offer_last_review_author_name: newReviewAuthorName,
-			offer_last_review_author_pic: newReviewAuthorUserPicUrl,
-			offer_last_review_text: newReviewText,
-			offer_last_review_timestamp: newReviewTimestamp
-		};
-
-		offerRatings.push(offerRating);
-  	}
 
   	return offerRatings;
 }
