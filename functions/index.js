@@ -146,26 +146,20 @@ exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocu
 	// This is triggered on review create, update and delete
     .onWrite((change, context) => {
     	let changedReview = undefined;
-
-    	if (change.after.exists) {
-    		// Review has been created or updated
-    		changedReview = change.after.data();
-
-    	} else if (change.before.exists) {
-    		// Review has been deleted
-    		changedReview = change.before.data();
-    	}
-
     	let isReviewChanged = false;
+
+    	console.log(`onWriteReview start`);
 
     	if (change.after.exists && !change.before.exists) {
     		// Review created
+    		changedReview = change.after.data();
     		isReviewChanged = true;
 
     		console.log(`Review created`);
 
     	} else if (!change.after.exists && change.before.exists) {
     		// Review deleted
+    		changedReview = change.before.data();
     		isReviewChanged = true;
 
     		console.log(`Review deleted`);
@@ -173,6 +167,7 @@ exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocu
     	} else if (change.after.exists && change.before.exists) {
     		const reviewBefore = change.before.data();
     		const reviewAfter = change.after.data();
+    		changedReview = reviewAfter;
 
     		console.log(`Review updated`);
 
