@@ -145,32 +145,21 @@ exports.onUpdateUserNameAndPic = functions.firestore.document('/userNameAndPic/{
 exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocument}/reviewsOfOffer/{reviewUid}')
 	// This is triggered on review create, update and delete
     .onWrite((change, context) => {
-    	// Get review from the document
     	let changedReview = undefined;
 
     	if (change.after.exists) {
     		// Review has been created or updated
     		changedReview = change.after.data();
 
-    		console.log(`change.after.exists = true (review created or updated)`);
-
     	} else if (change.before.exists) {
     		// Review has been deleted
     		changedReview = change.before.data();
-
-    		console.log(`change.after.exists = false, change.before.exists = true (review deleted)`);
     	}
 
-		console.log(`changedReview = ${changedReview}`);
-
     	if (changedReview === undefined) {
-			console.log(`changedReview = null. Error, quit`);
-
     		return null;
 
     	} else {
-			console.log(`changedReview !== null. Proceed`);
-
 	    	// Get reviews collection document id from params
 	    	const offerReviewsDocument = context.params.offerReviewsDocument;
 
@@ -532,8 +521,6 @@ function recalculateOfferRatings(snapshot, providerUser, offerUid) {
   	let offerRatings = providerUser.offerRatingList;
 
   	if (offerRatings === undefined) {
-  		console.log(`User has no reviews yet`);
-
   		// If user has no reviews yet, create new offer rating array
   		offerRatings = [];
   	}
@@ -542,19 +529,13 @@ function recalculateOfferRatings(snapshot, providerUser, offerUid) {
   	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
 
 	if (snapshot.empty) {
-  		console.log(`Offer has no reviews (all reviews have been deleted)`);
-
 		// If no reviews left (all reviews have been deleted),
 		// remove current offer's rating (if exists).
 	  	if (index >= 0 && index < offerRatings.length) {
-	  		console.log(`Remove offer's rating`);
-
    			offerRatings.splice(index, 1);
 	  	}
 
 	} else {
-  		console.log(`Offer has reviews`);
-
 		// Otherwise update current offer's rating.
 		newReviewCount = snapshot.size;
 
@@ -578,8 +559,6 @@ function recalculateOfferRatings(snapshot, providerUser, offerUid) {
 		let offerRating;
 
 	  	if (index >= 0 && index < offerRatings.length) {
-	  		console.log(`Current offer's rating exist, update`);
-
 	   		// Current offer's rating exist
 	      	offerRating = offerRatings[index];
 
@@ -591,8 +570,6 @@ function recalculateOfferRatings(snapshot, providerUser, offerUid) {
 			offerRating.offer_last_review_timestamp = latestReview.timestamp;
 
 	  	} else {
-	  		console.log(`Current offer's rating not exist, create`);
-
 	  		// Otherwise (this is the first review on the current offer)
 	  		// create new rating and add it to offer rating array.
 			offerRating = {
