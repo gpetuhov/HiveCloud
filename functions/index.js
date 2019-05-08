@@ -220,8 +220,8 @@ exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocu
 
 // -----------------------
 
-// TODO: add comments
-// TODO: remove logs
+// On every user online status update in Realtime Database
+// update user online status in Firestore.
 exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
 	.onUpdate((change, context) => {
     	const newStatus = change.after.val();
@@ -229,11 +229,10 @@ exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
 
     	if (newStatus === true) {
     		// If user online, do nothing
-    		console.log("User online, do nothing");
 	    	return null;
 
     	} else {
-    		console.log("User offline, update Firestore");
+    		// Otherwise set user online status false and last seen time in Firestore
     		return firestore.collection('users')
     					.doc(userUid)
 						.set({
