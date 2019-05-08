@@ -218,6 +218,31 @@ exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocu
     	}
     });
 
+// -----------------------
+
+// TODO: add comments
+// TODO: remove logs
+exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
+	.onUpdate((change, context) => {
+    	const newStatus = change.after.val();
+    	const userUid = context.params.userUid;
+
+    	if (newStatus === true) {
+    		// If user online, do nothing
+    		console.log("User online, do nothing");
+	    	return null;
+
+    	} else {
+    		console.log("User offline, update Firestore");
+    		return firestore.collection('users')
+    					.doc(userUid)
+						.set({
+							is_online: false,
+							last_seen: Date.now()
+						}, {merge: true});
+    	}
+	});
+
 // === Functions ===
 
 function getUserNameOrUsername(name, userName) {
