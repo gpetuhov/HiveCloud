@@ -112,6 +112,7 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 
 // -----------------------
 
+// TODO: Deprecated since app version 0.1.47. Remove this function.
 // If user's username or userpic has been updated,
 // update it in all chatrooms, this user participates in.
 exports.onUpdateUserNameAndPic = functions.firestore.document('/userNameAndPic/{userUid}')
@@ -137,6 +138,25 @@ exports.onUpdateUserNameAndPic = functions.firestore.document('/userNameAndPic/{
     		return getUserChatroomsAndUpdateUsername(userUid, newUsername, newUserPicUrl);
     	}
     });
+
+// -----------------------
+
+// Callable function used since app version 0.1.47 to update username and userpic in chatrooms
+// instead of updating special collection in Firestore and listening to its updates.
+exports.updateUserNameAndPicInChatrooms = functions.https.onCall((data, context) => {
+	const userUid = data.userUid;
+	const newUsername = data.newUsername;
+	const newUserPicUrl = data.newUserPicUrl;
+
+	// Checking that the user is authenticated.
+	if (!context.auth) {
+	  // Throwing an HttpsError so that the client gets the error details.
+	  throw new functions.https.HttpsError('failed-precondition', 'The function must be called while authenticated.');
+	}
+
+	// Update username or user pic in the chatrooms of the user
+	return getUserChatroomsAndUpdateUsername(userUid, newUsername, newUserPicUrl);
+});    
 
 // -----------------------
 
