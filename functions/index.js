@@ -236,17 +236,22 @@ exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
 // -----------------------
 
 // Clean orphaned data on user delete
-exports.onUserDelete = functions.firestore.document('users/{userUid}')
-    .onDelete((snap, context) => {
-    	const userUid = context.params.userUid;
+// Note that here we listen to FirebaseAuth, NOT Firestore
+exports.onUserDelete = functions.auth.user()
+	.onDelete((user) => {
+    	const userUid = user.uid;
 
     	// TODO: remove logs
 
 	    console.log(`Deleted user ${userUid}`);
 
+	    // TODO: don't forget do delete user document from Firestore
+
+	    console.log('Deleting user favorites');
+
 	    // Delete favorites collection in batches of 100 documents
 		return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, 100);
-    });
+	});
 
 // === Functions ===
 
