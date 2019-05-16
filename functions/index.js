@@ -112,37 +112,8 @@ exports.onUpdateChatMessage = functions.firestore.document('/chatrooms/{chatroom
 
 // -----------------------
 
-// TODO: Deprecated since app version 0.1.47. Remove this function.
-// If user's username or userpic has been updated,
-// update it in all chatrooms, this user participates in.
-exports.onUpdateUserNameAndPic = functions.firestore.document('/userNameAndPic/{userUid}')
-	// This is triggered on every document update
-    .onUpdate((change, context) => {
-    	const oldData = change.before.data();
-    	const newData = change.after.data();
-    	const userUid = context.params.userUid;
-
-    	// Name used in chatrooms (name or username)
-		const oldUsername = getUserNameOrUsername(oldData.name, oldData.username);
-    	const newUsername = getUserNameOrUsername(newData.name, newData.username);
-
-		const oldUserPicUrl = oldData.userPicUrl;
-    	const newUserPicUrl = newData.userPicUrl;
-
-    	if (oldUsername === newUsername && oldUserPicUrl === newUserPicUrl) {
-    		// Username and user pic not changed, do nothing
-	    	return null;
-
-    	} else {
-    		// Username or user pic changed, update it in the chatrooms of the user
-    		return getUserChatroomsAndUpdateUsername(userUid, newUsername, newUserPicUrl);
-    	}
-    });
-
-// -----------------------
-
-// Callable function used since app version 0.1.47 to update username and userpic in chatrooms
-// instead of updating special collection in Firestore and listening to its updates.
+// Callable function
+// Updates username and userpic in chatrooms
 exports.updateUserNameAndPicInChatrooms = functions.https.onCall((data, context) => {
 	const userUid = data.userUid;
 	const newUsername = data.newUsername;
