@@ -237,7 +237,12 @@ exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
 
 // Clean orphaned data on user delete
 // Note that here we listen to FirebaseAuth, NOT Firestore
-exports.onUserDelete = functions.auth.user()
+exports.onUserDelete = functions
+	.runWith({	// Extend default limits, because recursive data deletion may take up much resources
+		timeoutSeconds: 540,
+		memory: '2GB'
+	})
+	.auth.user()
 	.onDelete((user) => {
     	const userUid = user.uid;
 
