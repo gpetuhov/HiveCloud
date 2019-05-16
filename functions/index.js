@@ -271,6 +271,10 @@ exports.onUserDelete = functions
 			    // Delete user document
 				firestore.collection('users').doc(userUid).delete();
 
+				// Delete user pic
+				let bucket = admin.storage().bucket();
+				bucket.file(`${userUid}/userpic.jpg`).delete();
+
 				return;
 			});
 	});
