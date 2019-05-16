@@ -293,9 +293,34 @@ exports.onChatroomOfUserDelete = functions
 
 	    console.log(`Deleted chatroom ${chatroomUid} of user ${userUid}`);
 
-	    // TODO: implement
+    	const deletedChatroom = snap.data();
+    	const secondUserUid = deletedChatroom.secondUserUid;
 
-	    return null;
+	    console.log(`Second user uid = ${secondUserUid}`);
+
+   	    let batchSize = 100;
+
+	    // Get second user in the chat
+	    return firestore
+            .collection('users')
+            .doc(secondUserUid)
+            .get()
+            .then(doc => {
+            	if (!doc.exists) {
+            		// If second user not exists, delete all chatroom messages
+
+            		console.log('Second user not exists, deleting chatroom messages');
+
+            		return getDeleteChatroomMessagesPromise(chatroomUid, batchSize);
+            	
+            	} else {
+            		// Otherwise do NOT delete messages, because second user still needs them
+
+            		console.log('Second user exists, do not delete chatroom messages');
+
+			  		return null;
+            	}
+		    })
     });
 
 // === Functions ===
@@ -757,4 +782,11 @@ function getDeleteChatroomsOfUserPromise(userUid, batchSize) {
 
 	// Delete chatroomsOfUser collection in batches
 	return deleteCollection(`userChatrooms/${userUid}/chatroomsOfUser`, batchSize);
+}
+
+function getDeleteChatroomMessagesPromise(chatroomUid, batchSize) {
+	console.log('Deleting chatroom messages');
+
+	// Delete chatroom messages collection in batches
+	return deleteCollection(`chatrooms/${chatroomUid}/messages`, batchSize);
 }
