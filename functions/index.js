@@ -247,6 +247,11 @@ exports.onUserDelete = functions.auth.user()
 
 	    // TODO: don't forget do delete user document from Firestore
 
+	    console.log('Deleting user online value from Realtime Database');
+
+	    // Delete user online value from Realtime Database
+	    admin.database().ref('online/' + userUid).remove();
+
 	    console.log('Deleting user favorites');
 
 	    // Delete favorites collection in batches of 100 documents
