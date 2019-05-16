@@ -262,6 +262,20 @@ exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
     	}
 	});
 
+// -----------------------
+
+// Clean orphaned data on user delete
+exports.onUserDelete = functions.firestore.document('users/{userUid}')
+    .onDelete((snap, context) => {
+    	const userUid = context.params.userUid;
+
+    	// TODO: remove logs
+
+	    console.log(`Deleted user ${userUid}`);
+
+	    return null;
+    });
+
 // === Functions ===
 
 function getUserNameOrUsername(name, userName) {
