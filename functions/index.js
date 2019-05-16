@@ -252,10 +252,11 @@ exports.onUserDelete = functions.auth.user()
 	    // Delete user online value from Realtime Database
 	    admin.database().ref('online/' + userUid).remove();
 
-	    console.log('Deleting user favorites');
+	    let batchSize = 100;
 
-	    // Delete favorites collection in batches of 100 documents
-		return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, 100)
+	    let deleteFavoritesPromise = getDeleteFavoritesPromise(userUid, batchSize);
+
+		return Promise.all([deleteFavoritesPromise])
 			.then(() => {
 			    console.log('Deleting user document');
 
@@ -712,3 +713,10 @@ function getCommitBatchPromise(batch, snapshot) {
 }
 
 // -------------------------
+
+function getDeleteFavoritesPromise(userUid, batchSize) {
+	console.log('Deleting favorites');
+
+	// Delete favorites collection in batches
+	return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, batchSize);
+}
