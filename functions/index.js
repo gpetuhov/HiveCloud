@@ -255,8 +255,9 @@ exports.onUserDelete = functions.auth.user()
 	    let batchSize = 100;
 
 	    let deleteFavoritesPromise = getDeleteFavoritesPromise(userUid, batchSize);
+	    let deleteChatroomsOfUserPromise = getDeleteChatroomsOfUserPromise(userUid, batchSize);
 
-		return Promise.all([deleteFavoritesPromise])
+		return Promise.all([deleteFavoritesPromise, deleteChatroomsOfUserPromise])
 			.then(() => {
 			    console.log('Deleting user document');
 
@@ -719,4 +720,11 @@ function getDeleteFavoritesPromise(userUid, batchSize) {
 
 	// Delete favorites collection in batches
 	return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, batchSize);
+}
+
+function getDeleteChatroomsOfUserPromise(userUid, batchSize) {
+	console.log('Deleting chatrooms of user');
+
+	// Delete chatroomsOfUser collection in batches
+	return deleteCollection(`userChatrooms/${userUid}/chatroomsOfUser`, batchSize);
 }
