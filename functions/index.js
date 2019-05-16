@@ -255,7 +255,15 @@ exports.onUserDelete = functions.auth.user()
 	    console.log('Deleting user favorites');
 
 	    // Delete favorites collection in batches of 100 documents
-		return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, 100);
+		return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, 100)
+			.then(() => {
+			    console.log('Deleting user document');
+
+			    // Delete user document
+				firestore.collection('users').doc(userUid).delete();
+
+				return;
+			});
 	});
 
 // === Functions ===
