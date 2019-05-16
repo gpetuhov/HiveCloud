@@ -244,7 +244,8 @@ exports.onUserDelete = functions.firestore.document('users/{userUid}')
 
 	    console.log(`Deleted user ${userUid}`);
 
-	    return null;
+	    // Delete favorites collection in batches of 100 documents
+		return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, 100);
     });
 
 // === Functions ===
@@ -631,3 +632,65 @@ function recalculateOfferRatings(snapshot, providerUser, offerUid) {
 
   	return offerRatings;
 }
+
+// --- Delete collection ---
+// Code taken from https://firebase.google.com/docs/firestore/manage-data/delete-data#collections
+// Recursively delete collection in batches of provided size.
+
+function deleteCollection(collectionPath, batchSize) {
+	let collectionRef = firestore.collection(collectionPath);
+	let query = collectionRef.orderBy('__name__').limit(batchSize);
+
+	return new Promise((resolve, reject) => {
+		deleteQueryBatch(query, batchSize, resolve, reject);
+	});
+}
+
+function deleteQueryBatch(query, batchSize, resolve, reject) {
+	query.get()
+		.then((snapshot) => {
+			// When there are no documents left, we are done
+			if (snapshot.size === 0) {
+				console.log('snapshot empty');
+				return 0;
+			}
+
+			console.log('snapshot not empty');
+
+			// Delete documents in a batch
+			let batch = firestore.batch();
+			snapshot.docs.forEach((doc) => {
+				batch.delete(doc.ref);
+			});
+
+			return getCommitBatchPromise(batch, snapshot);
+		})
+		.then((numDeleted) => {
+			if (numDeleted === 0) {
+				console.log('numDeleted 0, resolve');
+				resolve();
+				return;
+			}
+
+			console.log('numDeleted not 0');
+
+			// Recurse on the next process tick, to avoid
+			// exploding the stack.
+			process.nextTick(() => {
+				console.log('running next batch');
+				deleteQueryBatch(query, batchSize, resolve, reject);
+			});
+
+			return;
+		})
+		.catch(reject);
+}
+
+function getCommitBatchPromise(batch, snapshot) {
+	return batch.commit()
+		.then(() => {
+			return snapshot.size;
+		});
+}
+
+// -------------------------
