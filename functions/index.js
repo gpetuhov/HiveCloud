@@ -260,6 +260,8 @@ exports.onUserDelete = functions
 	    let batchSize = 100;
 
 	    let deleteFavoritesPromise = getDeleteFavoritesPromise(userUid, batchSize);
+
+	    // This will in turn trigger onChatroomOfUserDelete()
 	    let deleteChatroomsOfUserPromise = getDeleteChatroomsOfUserPromise(userUid, batchSize);
 
 		return Promise.all([deleteFavoritesPromise, deleteChatroomsOfUserPromise])
@@ -272,6 +274,29 @@ exports.onUserDelete = functions
 				return;
 			});
 	});
+
+// -----------------------
+
+// Remove all chatroom messages on chatroomOfUser delete, if second user does not exist.
+// This gets triggered if user removes his chatroom or when the user is deleted.
+exports.onChatroomOfUserDelete = functions
+	.runWith({	// Extend default limits, because recursive data deletion may take up much resources
+		timeoutSeconds: 540,
+		memory: '2GB'
+	})
+	.firestore.document('userChatrooms/{userUid}/chatroomsOfUser/{chatroomUid}')
+    .onDelete((snap, context) => {
+    	const userUid = context.params.userUid;
+    	const chatroomUid = context.params.chatroomUid;
+
+    	// TODO: remove logs
+
+	    console.log(`Deleted chatroom ${chatroomUid} of user ${userUid}`);
+
+	    // TODO: implement
+
+	    return null;
+    });
 
 // === Functions ===
 
