@@ -284,8 +284,10 @@ exports.onUserDocumentDelete = functions
 	    // Running this promise will in turn trigger onChatroomOfUserDelete()
 	    let deleteChatroomsOfUserPromise = getDeleteChatroomsOfUserPromise(userUid, batchSize);
 
+	    let deleteAllOffersPromise = getDeleteAllOffersPromise(userUid, deletedUser);
+
 		// Delete favorites and chatrooms of user
-		return Promise.all([deleteFavoritesPromise, deleteChatroomsOfUserPromise])
+		return Promise.all([deleteFavoritesPromise, deleteChatroomsOfUserPromise, deleteAllOffersPromise])
 			.then(() => {
 			    deleteUserOnlineValue(userUid);
 				deleteUserPic(userUid, deletedUser);
@@ -830,6 +832,55 @@ function deleteUserPhotos(userUid, user) {
 			let photoUid = photo.photoUid;
 			console.log(`Deleting user photo ${photoUid}`);
 			bucket.file(`${userUid}/user_photos/${photoUid}.jpg`).delete();
+		});
+	}
+}
+
+// Delete all user offers
+function getDeleteAllOffersPromise(userUid, user) {
+    let deleteOfferPromiseArray = [];
+
+	let offerList = user.offerList;
+	if (offerList !== undefined) {
+		console.log('Deleting user offers');
+
+		offerList.forEach((offer) => {
+			deleteOfferPromiseArray.push(getDeleteOfferPromise(userUid, offer));
+		});
+	}
+
+    return Promise.all(deleteOfferPromiseArray);
+}
+
+// Delete offer
+function getDeleteOfferPromise(userUid, offer) {
+	let offerUid = offer.offer_uid;
+	
+	console.log(`Deleting offer ${offerUid}`);
+	
+	const batchSize = 100;
+
+	return getDeleteOfferReviewsPromise(offerUid, batchSize)
+		.then(() => {
+			deleteOfferPhotos(userUid, offer);
+			return;
+		});
+}
+
+// Delete offer reviews collection in batches
+function getDeleteOfferReviewsPromise(offerUid, batchSize) {
+	console.log(`Deleting reviews of offer ${offerUid}`);
+	return deleteCollection(`reviews/${offerUid}/reviewsOfOffer`, batchSize);
+}
+
+// Delete offer photos, if exist
+function deleteOfferPhotos(userUid, offer) {
+	let offerPhotoList = offer.offer_photo_list;
+	if (offerPhotoList !== undefined) {
+		offerPhotoList.forEach((photo) => {
+			let photoUid = photo.photoUid;
+			console.log(`Deleting offer photo ${photoUid}`);
+			bucket.file(`${userUid}/offer_photos/${photoUid}.jpg`).delete();
 		});
 	}
 }
