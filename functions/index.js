@@ -826,13 +826,7 @@ function deleteUserPic(userUid, user) {
 // Delete user photos, if exist
 function deleteUserPhotos(userUid, user) {
 	let photoList = user.photoList;
-	if (photoList !== undefined) {
-		photoList.forEach((photo) => {
-			let photoUid = photo.photoUid;
-			console.log(`Deleting user photo ${photoUid}`);
-			bucket.file(`${userUid}/user_photos/${photoUid}.jpg`).delete();
-		});
-	}
+	deletePhotos(userUid, photoList, 'user_photos');
 }
 
 // Delete all user offers
@@ -873,11 +867,16 @@ function getDeleteOfferReviewsPromise(userUid, offerUid, batchSize) {
 // Delete offer photos, if exist
 function deleteOfferPhotos(userUid, offer) {
 	let offerPhotoList = offer.offer_photo_list;
-	if (offerPhotoList !== undefined) {
-		offerPhotoList.forEach((photo) => {
+	deletePhotos(userUid, offerPhotoList, 'offer_photos');
+}
+
+// Delete photos, if photo list exists and not empty
+function deletePhotos(userUid, photoList, photoFolderName) {
+	if (photoList !== undefined) {
+		photoList.forEach((photo) => {
 			let photoUid = photo.photoUid;
-			console.log(`Deleting offer photo ${photoUid}`);
-			bucket.file(`${userUid}/offer_photos/${photoUid}.jpg`).delete();
+			console.log(`Deleting photo ${photoUid} from folder ${photoFolderName}`);
+			bucket.file(`${userUid}/${photoFolderName}/${photoUid}.jpg`).delete();
 		});
 	}
 }
