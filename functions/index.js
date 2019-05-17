@@ -290,11 +290,14 @@ exports.onUserDocumentDelete = functions
 			    // Delete user online value from Realtime Database
 			    admin.database().ref('online/' + userUid).remove();
 
-			    console.log('Deleting user pic');
+			    let userPicUrl = deletedUser.userPicUrl;
+			    if (userPicUrl !== undefined && userPicUrl !== "") {
+				    console.log('Deleting user pic');
 
-				// Delete user pic
-				let bucket = admin.storage().bucket();
-				bucket.file(`${userUid}/userpic.jpg`).delete();
+					// Delete user pic if exists only
+					let bucket = admin.storage().bucket();
+					bucket.file(`${userUid}/userpic.jpg`).delete();
+			    }
 
 				return;
 			});
