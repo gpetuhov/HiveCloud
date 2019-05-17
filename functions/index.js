@@ -287,30 +287,9 @@ exports.onUserDocumentDelete = functions
 		// Delete favorites and chatrooms of user
 		return Promise.all([deleteFavoritesPromise, deleteChatroomsOfUserPromise])
 			.then(() => {
-			    console.log('Deleting user online value from Realtime Database');
-
-			    // Delete user online value from Realtime Database
-			    firebase.ref('online/' + userUid).remove();
-
-				// Delete user pic if exists
-			    let userPicUrl = deletedUser.userPicUrl;
-			    if (userPicUrl !== undefined && userPicUrl !== "") {
-				    console.log('Deleting user pic');
-
-					bucket.file(`${userUid}/userpic.jpg`).delete();
-			    }
-
-			    // Delete user photos, if exist
-			    let photoList = deletedUser.photoList;
-			    if (photoList !== undefined) {
-					photoList.forEach((photo) => {
-						let photoUid = photo.photoUid;
-				   		console.log(`Deleting user photo ${photoUid}`);
-
-						bucket.file(`${userUid}/user_photos/${photoUid}.jpg`).delete();
-					});
-			    }
-
+			    deleteUserOnlineValue(userUid);
+				deleteUserPic(userUid, deletedUser);
+				deleteUserPhotos(userUid, deletedUser);
 				return;
 			});
     });
@@ -810,23 +789,47 @@ function getCommitBatchPromise(batch, snapshot) {
 
 // -------------------------
 
+// Delete favorites collection in batches
 function getDeleteFavoritesPromise(userUid, batchSize) {
 	console.log('Deleting favorites');
-
-	// Delete favorites collection in batches
 	return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, batchSize);
 }
 
+// Delete chatroomsOfUser collection in batches
 function getDeleteChatroomsOfUserPromise(userUid, batchSize) {
 	console.log('Deleting chatrooms of user');
-
-	// Delete chatroomsOfUser collection in batches
 	return deleteCollection(`userChatrooms/${userUid}/chatroomsOfUser`, batchSize);
 }
 
+// Delete chatroom messages collection in batches
 function getDeleteChatroomMessagesPromise(chatroomUid, batchSize) {
 	console.log('Deleting chatroom messages');
-
-	// Delete chatroom messages collection in batches
 	return deleteCollection(`chatrooms/${chatroomUid}/messages`, batchSize);
+}
+
+// Delete user online value from Realtime Database
+function deleteUserOnlineValue(userUid) {
+    console.log('Deleting user online value from Realtime Database');
+	firebase.ref('online/' + userUid).remove();
+}
+
+// Delete user pic if exists
+function deleteUserPic(userUid, user) {
+	let userPicUrl = user.userPicUrl;
+	if (userPicUrl !== undefined && userPicUrl !== "") {
+		console.log('Deleting user pic');
+		bucket.file(`${userUid}/userpic.jpg`).delete();
+	}
+}
+
+// Delete user photos, if exist
+function deleteUserPhotos(userUid, user) {
+	let photoList = user.photoList;
+	if (photoList !== undefined) {
+		photoList.forEach((photo) => {
+			let photoUid = photo.photoUid;
+			console.log(`Deleting user photo ${photoUid}`);
+			bucket.file(`${userUid}/user_photos/${photoUid}.jpg`).delete();
+		});
+	}
 }
