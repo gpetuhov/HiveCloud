@@ -235,41 +235,62 @@ exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
 
 // -----------------------
 
-// Clean orphaned data on user delete
-// Note that here we listen to FirebaseAuth, NOT Firestore
-exports.onUserDelete = functions
-	.runWith({	// Extend default limits, because recursive data deletion may take up much resources
-		timeoutSeconds: 540,
-		memory: '2GB'
-	})
-	.auth.user()
+// Delete user document in Firestore on user delete in FirebaseAuth.
+// Note that here we listen to FirebaseAuth, NOT Firestore!
+
+// Chain of triggers:
+// 1. User deleted in FirebaseAuth (onUserDelete) -> Delete user document in Firestore
+// 2. User document deleted in Firestore (onUserDocumentDelete) -> Delete user related data in Firestore, including chatrooms of user
+// 3. Chatroom of user deleted (onChatroomOfUserDelete) -> Delete all chatroom messages, if second user does not exist
+exports.onUserDelete = functions.auth.user()
 	.onDelete((user) => {
     	const userUid = user.uid;
 
     	// TODO: remove logs
 
-	    console.log(`Deleted user ${userUid}`);
+	    console.log(`Deleted user ${userUid} in FirebaseAuth`);
 
-	    // TODO: don't forget do delete user document from Firestore
+	    console.log('Deleting user document');
 
-	    console.log('Deleting user online value from Realtime Database');
+	    // Delete user document
+		firestore.collection('users').doc(userUid).delete();
 
-	    // Delete user online value from Realtime Database
-	    admin.database().ref('online/' + userUid).remove();
+		return null;
+	});
+
+// -----------------------
+
+// Delete user related data (orphaned data) on user document delete in Firestore
+exports.onUserDocumentDelete = functions
+	.runWith({	// Extend default limits, because recursive data deletion may take up much resources
+		timeoutSeconds: 540,
+		memory: '2GB'
+	})
+	.firestore.document('users/{userUid}')
+    .onDelete((snap, context) => {
+    	const userUid = context.params.userUid;
+    	const deletedUser = snap.data();
+
+	    console.log('User document deleted');
+
+	    console.log('Deleting favorites and chatrooms of user');
 
 	    let batchSize = 100;
 
 	    let deleteFavoritesPromise = getDeleteFavoritesPromise(userUid, batchSize);
 
-	    // This will in turn trigger onChatroomOfUserDelete()
+	    // Running this promise will in turn trigger onChatroomOfUserDelete()
 	    let deleteChatroomsOfUserPromise = getDeleteChatroomsOfUserPromise(userUid, batchSize);
 
+		// Delete favorites and chatrooms of user
 		return Promise.all([deleteFavoritesPromise, deleteChatroomsOfUserPromise])
 			.then(() => {
-			    console.log('Deleting user document');
+			    console.log('Deleting user online value from Realtime Database');
 
-			    // Delete user document
-				firestore.collection('users').doc(userUid).delete();
+			    // Delete user online value from Realtime Database
+			    admin.database().ref('online/' + userUid).remove();
+
+			    console.log('Deleting user pic');
 
 				// Delete user pic
 				let bucket = admin.storage().bucket();
@@ -277,7 +298,7 @@ exports.onUserDelete = functions
 
 				return;
 			});
-	});
+    });
 
 // -----------------------
 
