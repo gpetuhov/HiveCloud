@@ -5,6 +5,8 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 const firestore = admin.firestore();
+const firebase = admin.database();
+const bucket = admin.storage().bucket();
 
 // This is needed to remove timestamp warning
 const settings = {timestampsInSnapshots: true};
@@ -288,15 +290,25 @@ exports.onUserDocumentDelete = functions
 			    console.log('Deleting user online value from Realtime Database');
 
 			    // Delete user online value from Realtime Database
-			    admin.database().ref('online/' + userUid).remove();
+			    firebase.ref('online/' + userUid).remove();
 
+				// Delete user pic if exists
 			    let userPicUrl = deletedUser.userPicUrl;
 			    if (userPicUrl !== undefined && userPicUrl !== "") {
 				    console.log('Deleting user pic');
 
-					// Delete user pic if exists only
-					let bucket = admin.storage().bucket();
 					bucket.file(`${userUid}/userpic.jpg`).delete();
+			    }
+
+			    // Delete user photos, if exist
+			    let photoList = deletedUser.photoList;
+			    if (photoList !== undefined) {
+					photoList.forEach((photo) => {
+						let photoUid = photo.photoUid;
+				   		console.log(`Deleting user photo ${photoUid}`);
+
+						bucket.file(`${userUid}/user_photos/${photoUid}.jpg`).delete();
+					});
 			    }
 
 				return;
