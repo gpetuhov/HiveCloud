@@ -12,6 +12,9 @@ const bucket = admin.storage().bucket();
 const settings = {timestampsInSnapshots: true};
 firestore.settings(settings);
 
+// Collections will be recursively deleted in batches of this size
+const deleteCollectionBatchSize = 100;
+
 // === Exports ===
 
 // Listen for new chat messages added to /chatrooms/:chatroomId/messages/:messageId ,
@@ -277,12 +280,10 @@ exports.onUserDocumentDelete = functions
 
 	    console.log('Deleting favorites and chatrooms of user');
 
-	    let batchSize = 100;
-
-	    let deleteFavoritesPromise = getDeleteFavoritesPromise(userUid, batchSize);
+	    let deleteFavoritesPromise = getDeleteFavoritesPromise(userUid, deleteCollectionBatchSize);
 
 	    // Running this promise will in turn trigger onChatroomOfUserDelete()
-	    let deleteChatroomsOfUserPromise = getDeleteChatroomsOfUserPromise(userUid, batchSize);
+	    let deleteChatroomsOfUserPromise = getDeleteChatroomsOfUserPromise(userUid, deleteCollectionBatchSize);
 
 	    let deleteAllOffersPromise = getDeleteAllOffersPromise(userUid, deletedUser);
 
@@ -319,8 +320,6 @@ exports.onChatroomOfUserDelete = functions
 
 	    console.log(`Second user uid = ${secondUserUid}`);
 
-   	    let batchSize = 100;
-
 	    // Get second user in the chat
 	    return firestore
             .collection('users')
@@ -332,7 +331,7 @@ exports.onChatroomOfUserDelete = functions
 
             		console.log('Second user not exists, deleting chatroom messages');
 
-            		return getDeleteChatroomMessagesPromise(chatroomUid, batchSize);
+            		return getDeleteChatroomMessagesPromise(chatroomUid, deleteCollectionBatchSize);
             	
             	} else {
             		// Otherwise do NOT delete messages, because second user still needs them
@@ -858,9 +857,7 @@ function getDeleteOfferPromise(userUid, offer) {
 	
 	console.log(`Deleting offer ${offerUid}`);
 	
-	const batchSize = 100;
-
-	return getDeleteOfferReviewsPromise(userUid, offerUid, batchSize)
+	return getDeleteOfferReviewsPromise(userUid, offerUid, deleteCollectionBatchSize)
 		.then(() => {
 			deleteOfferPhotos(userUid, offer);
 			return;
