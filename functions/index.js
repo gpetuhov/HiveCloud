@@ -190,6 +190,29 @@ exports.recalculateRating = functions.https.onCall((data, context) => {
 
 // -----------------------
 
+// Callable function
+// Called directly from the app to delete offer related data on manual offer delete
+exports.deleteOfferData = functions.https.onCall((data, context) => {
+	// Checking that the user is authenticated.
+	if (!context.auth) {
+	  // Throwing an HttpsError so that the client gets the error details.
+	  throw new functions.https.HttpsError('failed-precondition', 'The function must be called while authenticated.');
+	}
+
+	const userUid = data.userUid;
+	const offerUid = data.offerUid;
+
+	// Delete offer reviews.
+	// We don't have to delete offer photos here, because this is done from the app.
+	return getDeleteOfferReviewsPromise(userUid, offerUid, deleteCollectionBatchSize)
+		.then(() => {
+			// TODO: delete item in offerRatingList
+			return;
+		});
+});    
+
+// -----------------------
+
 // On every user online status update in Realtime Database
 // update user online status in Firestore.
 exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
