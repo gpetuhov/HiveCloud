@@ -136,83 +136,57 @@ exports.updateUserNameAndPicInChatrooms = functions.https.onCall((data, context)
 
 // -----------------------
 
-// On every review change update corresponding offer rating in provider user
+// Callable function.
+// Called directly from the app on review create, update and delete.
+// Recalculates and updates corresponding offer rating in provider user
 // (the user who provides this offer).
-exports.onWriteReview = functions.firestore.document('/reviews/{offerReviewsDocument}/reviewsOfOffer/{reviewUid}')
-	// This is triggered on review create, update and delete
-    .onWrite((change, context) => {
-    	let changedReview = undefined;
-    	let isReviewChanged = false;
+exports.recalculateRating = functions.https.onCall((data, context) => {
+	// Checking that the user is authenticated.
+	if (!context.auth) {
+	  // Throwing an HttpsError so that the client gets the error details.
+	  throw new functions.https.HttpsError('failed-precondition', 'The function must be called while authenticated.');
+	}
 
-    	if (change.after.exists && !change.before.exists) {
-    		// Review created
-    		changedReview = change.after.data();
-    		isReviewChanged = true;
+ 	const providerUserUid = data.providerUserUid;
+ 	const offerUid = data.offerUid;
+	const offerReviewsDocumentUid = data.offerReviewsDocumentUid;
 
-    	} else if (!change.after.exists && change.before.exists) {
-    		// Review deleted
-    		changedReview = change.before.data();
-    		isReviewChanged = true;
+  	let providerUser;
 
-    	} else if (change.after.exists && change.before.exists) {
-    		const reviewBefore = change.before.data();
-    		const reviewAfter = change.after.data();
-    		changedReview = reviewAfter;
+  	const providerUserRef = firestore.collection('users').doc(providerUserUid);
 
-    		if (reviewBefore.text !== reviewAfter.text || reviewBefore.rating !== reviewAfter.rating) {
-    			// Consider review changed, only if changed review text or rating
-    			isReviewChanged = true;
-    		}
-    	}
+  	// Update provider user offer rating list in transaction
+  	// (this is needed, because several reviews on the same offer 
+  	// can be posted at the same time)
+    return firestore.runTransaction(transaction => {
+	    return transaction.get(providerUserRef)
+			.then(doc => {
+				// Get provider user
+ 	   	        providerUser = doc.data();
 
-    	if (!isReviewChanged || changedReview === undefined) {
-    		// If review has not changed or is undefined, do nothing
-    		return null;
+	              	// Get offer reviews
+ 	   	        return getOfferReviewsPromise(offerReviewsDocumentUid);
+	    	})
+	    	.then(snapshot => {
+	    		// Calculate new offer rating based on all reviews of this offer
+	              	const offerRatings = recalculateOfferRatings(snapshot, providerUser, offerUid);
 
-    	} else {
-	    	// Get reviews collection document id from params
-	    	const offerReviewsDocument = context.params.offerReviewsDocument;
+	              	// Update only offer rating array in provider user
+				const updatedProviderUser = {
+					offerRatingList: offerRatings
+				};
 
-	     	const providerUserUid = changedReview.providerUserUid;
-	     	const offerUid = changedReview.offerUid;
-
-	      	let providerUser;
-
-	      	const providerUserRef = firestore.collection('users').doc(providerUserUid);
-
-	      	// Update provider user offer rating list in transaction
-	      	// (this is needed, because several reviews on the same offer 
-	      	// can be posted at the same time)
-	        return firestore.runTransaction(transaction => {
-			    return transaction.get(providerUserRef)
-					.then(doc => {
-						// Get provider user
-		 	   	        providerUser = doc.data();
-
-	   	              	// Get offer reviews
-		 	   	        return getOfferReviewsPromise(offerReviewsDocument);
-			    	})
-			    	.then(snapshot => {
-			    		// Calculate new offer rating based on all reviews of this offer
-	   	              	const offerRatings = recalculateOfferRatings(snapshot, providerUser, offerUid);
-
-	   	              	// Update only offer rating array in provider user
-						const updatedProviderUser = {
-							offerRatingList: offerRatings
-						};
-
-						return transaction.update(providerUserRef, updatedProviderUser);
-			    	})
-			})
-			.then(result => {
-				return null;
-			})
-			.catch(err => {
-				console.log('Update provider user transaction failure:', err);
-				return null;
-			});
-    	}
-    });
+				return transaction.update(providerUserRef, updatedProviderUser);
+	    	})
+	})
+	.then(result => {
+		return null;
+	})
+	.catch(err => {
+		console.log('Update provider user transaction failure:', err);
+		return null;
+	});
+});    
 
 // -----------------------
 
