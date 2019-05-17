@@ -860,7 +860,7 @@ function getDeleteOfferPromise(userUid, offer) {
 	
 	const batchSize = 100;
 
-	return getDeleteOfferReviewsPromise(offerUid, batchSize)
+	return getDeleteOfferReviewsPromise(userUid, offerUid, batchSize)
 		.then(() => {
 			deleteOfferPhotos(userUid, offer);
 			return;
@@ -868,9 +868,9 @@ function getDeleteOfferPromise(userUid, offer) {
 }
 
 // Delete offer reviews collection in batches
-function getDeleteOfferReviewsPromise(offerUid, batchSize) {
+function getDeleteOfferReviewsPromise(userUid, offerUid, batchSize) {
 	console.log(`Deleting reviews of offer ${offerUid}`);
-	return deleteCollection(`reviews/${offerUid}/reviewsOfOffer`, batchSize);
+	return deleteCollection(`reviews/${userUid}_${offerUid}/reviewsOfOffer`, batchSize);
 }
 
 // Delete offer photos, if exist
