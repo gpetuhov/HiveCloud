@@ -164,14 +164,14 @@ exports.recalculateRating = functions.https.onCall((data, context) => {
 				// Get provider user
  	   	        providerUser = doc.data();
 
-	              	// Get offer reviews
+	            // Get offer reviews
  	   	        return getOfferReviewsPromise(offerReviewsDocumentUid);
 	    	})
 	    	.then(snapshot => {
 	    		// Calculate new offer rating based on all reviews of this offer
-	              	const offerRatings = recalculateOfferRatings(snapshot, providerUser, offerUid);
+	            const offerRatings = recalculateOfferRatings(snapshot, providerUser, offerUid);
 
-	              	// Update only offer rating array in provider user
+	            // Update only offer rating array in provider user
 				const updatedProviderUser = {
 					offerRatingList: offerRatings
 				};
@@ -206,8 +206,11 @@ exports.deleteOfferData = functions.https.onCall((data, context) => {
 	// We don't have to delete offer photos here, because this is done from the app.
 	return getDeleteOfferReviewsPromise(userUid, offerUid, deleteCollectionBatchSize)
 		.then(() => {
-			// TODO: delete item in offerRatingList
-			return;
+			// Delete offer rating list item for the offer being deleted
+
+			console.log('Delete offer rating list item');
+
+			return deleteOfferRatingListItem(userUid, offerUid);
 		});
 });    
 
@@ -876,4 +879,66 @@ function deletePhotos(userUid, photoList, photoFolderName) {
 			bucket.file(`${userUid}/${photoFolderName}/${photoUid}.jpg`).delete();
 		});
 	}
+}
+
+// Delete offer rating list item for offer being deleted
+function deleteOfferRatingListItem(userUid, offerUid) {
+	const providerUserRef = firestore.collection('users').doc(userUid);
+
+  	// Update provider user offer rating list in transaction
+  	// (this is needed, because another user can leave a review on the same offer at the same time)
+    return firestore.runTransaction(transaction => {
+	    return transaction.get(providerUserRef)
+			.then(doc => {
+				// Get provider user
+ 	   	        let providerUser = doc.data();
+
+			  	// Get offer rating list
+			  	let offerRatings = providerUser.offerRatingList;
+
+			  	if (offerRatings === undefined) {
+			  		// If user has no reviews yet, do nothing
+
+			  		console.log('Offer rating list empty, do nothing');
+
+			  		return null;
+			  	
+			  	} else {
+			  		// Otherwise remove corresponding offer rating list item
+
+				  	// Find index of current offer's rating
+				  	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
+
+				  	if (index >= 0 && index < offerRatings.length) {
+				  		console.log('Update offer rating list');
+
+						// Remove current offer's rating, if exists
+			   			offerRatings.splice(index, 1);
+
+			            // Update only offer rating array in provider user
+						const updatedProviderUser = {
+							offerRatingList: offerRatings
+						};
+
+						return transaction.update(providerUserRef, updatedProviderUser);
+
+				  	} else {
+				  		// Otherwise do nothing 
+				  		// (there is no item for current offer in offer rating list, 
+				  		// because offer has no reviews).
+
+				  		console.log('Offer has no item in offer rating list, do nothing');
+
+				  		return null;
+				  	}
+			  	}
+	    	})
+	})
+	.then(result => {
+		return null;
+	})
+	.catch(err => {
+		console.log('Update provider user transaction failure:', err);
+		return null;
+	});	
 }
