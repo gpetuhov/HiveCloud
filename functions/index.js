@@ -207,9 +207,6 @@ exports.deleteOfferData = functions.https.onCall((data, context) => {
 	return getDeleteOfferReviewsPromise(userUid, offerUid, deleteCollectionBatchSize)
 		.then(() => {
 			// Delete offer rating list item for the offer being deleted
-
-			console.log('Delete offer rating list item');
-
 			return deleteOfferRatingListItem(userUid, offerUid);
 		});
 });    
@@ -251,12 +248,6 @@ exports.onUserDelete = functions.auth.user()
 	.onDelete((user) => {
     	const userUid = user.uid;
 
-    	// TODO: remove logs
-
-	    console.log(`Deleted user ${userUid} in FirebaseAuth`);
-
-	    console.log('Deleting user document');
-
 	    // Delete user document
 		firestore.collection('users').doc(userUid).delete();
 
@@ -275,10 +266,6 @@ exports.onUserDocumentDelete = functions
     .onDelete((snap, context) => {
     	const userUid = context.params.userUid;
     	const deletedUser = snap.data();
-
-	    console.log('User document deleted');
-
-	    console.log('Deleting favorites and chatrooms of user');
 
 	    let deleteFavoritesPromise = getDeleteFavoritesPromise(userUid, deleteCollectionBatchSize);
 
@@ -311,14 +298,8 @@ exports.onChatroomOfUserDelete = functions
     	const userUid = context.params.userUid;
     	const chatroomUid = context.params.chatroomUid;
 
-    	// TODO: remove logs
-
-	    console.log(`Deleted chatroom ${chatroomUid} of user ${userUid}`);
-
     	const deletedChatroom = snap.data();
     	const secondUserUid = deletedChatroom.secondUserUid;
-
-	    console.log(`Second user uid = ${secondUserUid}`);
 
 	    // Get second user in the chat
 	    return firestore
@@ -328,16 +309,10 @@ exports.onChatroomOfUserDelete = functions
             .then(doc => {
             	if (!doc.exists) {
             		// If second user not exists, delete all chatroom messages
-
-            		console.log('Second user not exists, deleting chatroom messages');
-
             		return getDeleteChatroomMessagesPromise(chatroomUid, deleteCollectionBatchSize);
             	
             	} else {
             		// Otherwise do NOT delete messages, because second user still needs them
-
-            		console.log('Second user exists, do not delete chatroom messages');
-
 			  		return null;
             	}
 		    })
@@ -746,11 +721,8 @@ function deleteQueryBatch(query, batchSize, resolve, reject) {
 		.then((snapshot) => {
 			// When there are no documents left, we are done
 			if (snapshot.size === 0) {
-				console.log('snapshot empty');
 				return 0;
 			}
-
-			console.log('snapshot not empty');
 
 			// Delete documents in a batch
 			let batch = firestore.batch();
@@ -762,17 +734,13 @@ function deleteQueryBatch(query, batchSize, resolve, reject) {
 		})
 		.then((numDeleted) => {
 			if (numDeleted === 0) {
-				console.log('numDeleted 0, resolve');
 				resolve();
 				return;
 			}
 
-			console.log('numDeleted not 0');
-
 			// Recurse on the next process tick, to avoid
 			// exploding the stack.
 			process.nextTick(() => {
-				console.log('running next batch');
 				deleteQueryBatch(query, batchSize, resolve, reject);
 			});
 
@@ -792,25 +760,21 @@ function getCommitBatchPromise(batch, snapshot) {
 
 // Delete favorites collection in batches
 function getDeleteFavoritesPromise(userUid, batchSize) {
-	console.log('Deleting favorites');
 	return deleteCollection(`userFavorites/${userUid}/favoritesOfUser`, batchSize);
 }
 
 // Delete chatroomsOfUser collection in batches
 function getDeleteChatroomsOfUserPromise(userUid, batchSize) {
-	console.log('Deleting chatrooms of user');
 	return deleteCollection(`userChatrooms/${userUid}/chatroomsOfUser`, batchSize);
 }
 
 // Delete chatroom messages collection in batches
 function getDeleteChatroomMessagesPromise(chatroomUid, batchSize) {
-	console.log('Deleting chatroom messages');
 	return deleteCollection(`chatrooms/${chatroomUid}/messages`, batchSize);
 }
 
 // Delete user online value from Realtime Database
 function deleteUserOnlineValue(userUid) {
-    console.log('Deleting user online value from Realtime Database');
 	firebase.ref('online/' + userUid).remove();
 }
 
@@ -818,7 +782,6 @@ function deleteUserOnlineValue(userUid) {
 function deleteUserPic(userUid, user) {
 	let userPicUrl = user.userPicUrl;
 	if (userPicUrl !== undefined && userPicUrl !== "") {
-		console.log('Deleting user pic');
 		bucket.file(`${userUid}/userpic.jpg`).delete();
 	}
 }
@@ -835,8 +798,6 @@ function getDeleteAllOffersPromise(userUid, user) {
 
 	let offerList = user.offerList;
 	if (offerList !== undefined) {
-		console.log('Deleting user offers');
-
 		offerList.forEach((offer) => {
 			deleteOfferPromiseArray.push(getDeleteOfferPromise(userUid, offer));
 		});
@@ -849,8 +810,6 @@ function getDeleteAllOffersPromise(userUid, user) {
 function getDeleteOfferPromise(userUid, offer) {
 	let offerUid = offer.offer_uid;
 	
-	console.log(`Deleting offer ${offerUid}`);
-	
 	return getDeleteOfferReviewsPromise(userUid, offerUid, deleteCollectionBatchSize)
 		.then(() => {
 			deleteOfferPhotos(userUid, offer);
@@ -860,7 +819,6 @@ function getDeleteOfferPromise(userUid, offer) {
 
 // Delete offer reviews collection in batches
 function getDeleteOfferReviewsPromise(userUid, offerUid, batchSize) {
-	console.log(`Deleting reviews of offer ${offerUid}`);
 	return deleteCollection(`reviews/${userUid}_${offerUid}/reviewsOfOffer`, batchSize);
 }
 
@@ -875,7 +833,6 @@ function deletePhotos(userUid, photoList, photoFolderName) {
 	if (photoList !== undefined) {
 		photoList.forEach((photo) => {
 			let photoUid = photo.photoUid;
-			console.log(`Deleting photo ${photoUid} from folder ${photoFolderName}`);
 			bucket.file(`${userUid}/${photoFolderName}/${photoUid}.jpg`).delete();
 		});
 	}
@@ -898,9 +855,6 @@ function deleteOfferRatingListItem(userUid, offerUid) {
 
 			  	if (offerRatings === undefined) {
 			  		// If user has no reviews yet, do nothing
-
-			  		console.log('Offer rating list empty, do nothing');
-
 			  		return null;
 			  	
 			  	} else {
@@ -910,8 +864,6 @@ function deleteOfferRatingListItem(userUid, offerUid) {
 				  	const index = offerRatings.findIndex( item => item.offer_uid === offerUid );
 
 				  	if (index >= 0 && index < offerRatings.length) {
-				  		console.log('Update offer rating list');
-
 						// Remove current offer's rating, if exists
 			   			offerRatings.splice(index, 1);
 
@@ -926,9 +878,6 @@ function deleteOfferRatingListItem(userUid, offerUid) {
 				  		// Otherwise do nothing 
 				  		// (there is no item for current offer in offer rating list, 
 				  		// because offer has no reviews).
-
-				  		console.log('Offer has no item in offer rating list, do nothing');
-
 				  		return null;
 				  	}
 			  	}
