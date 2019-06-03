@@ -225,11 +225,12 @@ exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
 	    	return null;
 
     	} else {
-    		// Otherwise set user online status false and last seen time in Firestore
+    		// Otherwise set user online status false, isHiveRunning false and last seen time in Firestore
     		return firestore.collection('users')
     					.doc(userUid)
 						.set({
 							is_online: false,
+							isHiveRunning: false,
 							last_seen: Date.now()
 						}, {merge: true});
     	}
