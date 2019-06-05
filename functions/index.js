@@ -225,14 +225,34 @@ exports.onUserStatusChange = functions.database.ref('/online/{userUid}')
 	    	return null;
 
     	} else {
-    		// Otherwise set user online status false, isHiveRunning false and last seen time in Firestore
+    		// Otherwise set user online status false and last seen time in Firestore
     		return firestore.collection('users')
     					.doc(userUid)
 						.set({
 							is_online: false,
-							isHiveRunning: false,
 							last_seen: Date.now()
 						}, {merge: true});
+    	}
+	});
+
+// -----------------------
+
+// On every user isHiveRunning status update in Realtime Database
+// update user isHiveRunning status in Firestore.
+exports.onUserIsHiveRunningChange = functions.database.ref('/isHiveRunning/{userUid}')
+	.onUpdate((change, context) => {
+    	const newIsHiveRunning = change.after.val();
+    	const userUid = context.params.userUid;
+
+    	if (newIsHiveRunning === true) {
+    		// If isHiveRunning true, do nothing
+	    	return null;
+
+    	} else {
+    		// Otherwise set isHiveRunning false in Firestore
+    		return firestore.collection('users')
+    					.doc(userUid)
+						.set({isHiveRunning: false}, {merge: true});
     	}
 	});
 
